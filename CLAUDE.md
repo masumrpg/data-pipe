@@ -48,8 +48,18 @@ datapipe/
 │   └── shared/
 │       └── types.ts            ← semua types
 ├── pipelines/                  ← folder config pipeline
-│   ├── quran-seed.json
-│   └── import-products.json
+│   ├── pipeline.schema.json
+│   ├── equran/
+│   │   ├── pipeline.json
+│   │   ├── input/
+│   │   └── output/
+│   └── products/
+│       ├── pipeline.json
+│       ├── input/
+│       │   └── products.csv
+│       ├── output/
+│       │   └── products.db
+│       └── init-db.ts
 └── package.json
 ```
 
@@ -70,16 +80,16 @@ bun add -d @types/react @types/pg @types/papaparse @types/js-yaml typescript
 
 ```bash
 # Jalankan pipeline dari file config
-bun run src/index.tsx --pipeline pipelines/quran-seed.json
+bun run src/index.tsx --pipeline pipelines/equran/pipeline.json
 
 # Dry run — fetch + mapping tapi tidak insert ke DB
-bun run src/index.tsx --pipeline pipelines/quran-seed.json --dry-run
+bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --dry-run
 
 # Retry item gagal dari run sebelumnya (baca dari failed.json)
-bun run src/index.tsx --pipeline pipelines/quran-seed.json --retry
+bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --retry
 
 # Test koneksi DB saja
-bun run src/index.tsx --pipeline pipelines/quran-seed.json --test-connection
+bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --test-connection
 ```
 
 ---

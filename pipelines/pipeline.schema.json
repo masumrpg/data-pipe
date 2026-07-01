@@ -2,22 +2,22 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://datapipe.local/pipeline.schema.json",
   "title": "DataPipe Pipeline Config",
-  "description": "Konfigurasi pipeline untuk DataPipe CLI — define source, mapping, dan target.",
+  "description": "Pipeline configuration for DataPipe CLI — defines source, mapping, and target.",
   "type": "object",
   "required": ["name", "version", "source", "target", "operation", "mapping"],
   "additionalProperties": false,
   "properties": {
     "$schema": {
       "type": "string",
-      "description": "Path ke JSON Schema (untuk IDE autocomplete)"
+      "description": "Path to the JSON Schema (for IDE autocomplete & validation)"
     },
     "name": {
       "type": "string",
-      "description": "Nama pipeline, ditampilkan di UI"
+      "description": "Name of the pipeline, displayed in the CLI header"
     },
     "version": {
       "type": "string",
-      "description": "Versi konfigurasi pipeline",
+      "description": "Pipeline configuration version",
       "default": "1.0"
     },
     "source": {
@@ -31,7 +31,7 @@
     },
     "mapping": {
       "type": "array",
-      "description": "Daftar aturan mapping dari source field ke kolom target",
+      "description": "List of mapping rules from source fields to target database columns",
       "items": {
         "$ref": "#/$defs/MappingRule"
       },
@@ -41,7 +41,7 @@
 
   "$defs": {
     "SourceConfig": {
-      "description": "Konfigurasi sumber data",
+      "description": "Source data configuration",
       "oneOf": [
         { "$ref": "#/$defs/JsonSource" },
         { "$ref": "#/$defs/CsvSource" },
@@ -51,7 +51,7 @@
 
     "JsonSource": {
       "type": "object",
-      "description": "Baca data dari file JSON lokal",
+      "description": "Read data from a local JSON file",
       "required": ["type", "filePath"],
       "additionalProperties": false,
       "properties": {
@@ -60,18 +60,18 @@
         },
         "filePath": {
           "type": "string",
-          "description": "Path ke file JSON (relatif atau absolut)"
+          "description": "Path to the JSON file (relative or absolute)"
         },
         "resultPath": {
           "type": "string",
-          "description": "Dot-path ke array data di dalam JSON, misal \"data.users\""
+          "description": "Dot-path to the target data array inside the JSON file, e.g. \"data.users\""
         }
       }
     },
 
     "CsvSource": {
       "type": "object",
-      "description": "Baca data dari file CSV lokal",
+      "description": "Read data from a local CSV file",
       "required": ["type", "filePath", "delimiter", "hasHeader"],
       "additionalProperties": false,
       "properties": {
@@ -80,17 +80,17 @@
         },
         "filePath": {
           "type": "string",
-          "description": "Path ke file CSV (relatif atau absolut)"
+          "description": "Path to the CSV file (relative or absolute)"
         },
         "delimiter": {
           "type": "string",
-          "description": "Delimiter kolom CSV",
+          "description": "Delimiter separating columns in the CSV",
           "enum": [",", ";", "\t", "|"],
           "default": ","
         },
         "hasHeader": {
           "type": "boolean",
-          "description": "Apakah baris pertama adalah header kolom",
+          "description": "Whether the first row contains column headers",
           "default": true
         }
       }
@@ -98,7 +98,7 @@
 
     "ApiSource": {
       "type": "object",
-      "description": "Fetch data dari satu atau lebih REST API endpoint",
+      "description": "Fetch data from one or more REST API endpoints",
       "required": ["type", "pagination", "requests", "mergeKey", "delayMs"],
       "additionalProperties": false,
       "properties": {
@@ -110,7 +110,7 @@
         },
         "requests": {
           "type": "array",
-          "description": "Daftar API request yang akan di-fetch per iterasi",
+          "description": "List of API requests to be performed in each page iteration",
           "items": {
             "$ref": "#/$defs/ApiRequest"
           },
@@ -118,11 +118,11 @@
         },
         "mergeKey": {
           "type": "string",
-          "description": "Key untuk menggabungkan hasil dari multiple request"
+          "description": "Key attribute used to merge items from multiple requests"
         },
         "delayMs": {
           "type": "integer",
-          "description": "Delay antar request dalam milidetik (rate limiting)",
+          "description": "Rate limiting delay between API requests in milliseconds",
           "minimum": 0,
           "default": 200
         }
@@ -131,26 +131,26 @@
 
     "ApiRequest": {
       "type": "object",
-      "description": "Satu API endpoint untuk di-fetch",
+      "description": "A single API endpoint request configuration",
       "required": ["id", "url"],
       "additionalProperties": false,
       "properties": {
         "id": {
           "type": "string",
-          "description": "ID unik request — dipakai sebagai key di merged result, misal \"equran\""
+          "description": "Unique key identifier for the response in merged results, e.g. \"main_api\""
         },
         "url": {
           "type": "string",
-          "description": "URL endpoint. Gunakan {param} untuk placeholder pagination, misal \"https://api.com/items/{id}\"",
+          "description": "Request URL. Use {param} placeholder for pagination indexes, e.g. \"https://api.com/items/{id}\"",
           "format": "uri-template"
         },
         "resultPath": {
           "type": "string",
-          "description": "Dot-path ke data di response JSON, misal \"data.items\""
+          "description": "Dot-path to extract target array data from JSON response, e.g. \"data.items\""
         },
         "headers": {
           "type": "object",
-          "description": "HTTP headers tambahan, misal Authorization",
+          "description": "Additional HTTP headers, e.g. Authorization keys",
           "additionalProperties": {
             "type": "string"
           }
@@ -159,7 +159,7 @@
     },
 
     "PaginationConfig": {
-      "description": "Konfigurasi pagination untuk API source",
+      "description": "Pagination configuration for the API source",
       "oneOf": [
         { "$ref": "#/$defs/RangePagination" },
         { "$ref": "#/$defs/CursorPagination" },
@@ -169,7 +169,7 @@
 
     "RangePagination": {
       "type": "object",
-      "description": "Loop dari angka 'from' sampai 'to' — cocok untuk API dengan ID/page number",
+      "description": "Loop pagination from a starting index to an ending index",
       "required": ["type", "param", "from", "to"],
       "additionalProperties": false,
       "properties": {
@@ -178,22 +178,22 @@
         },
         "param": {
           "type": "string",
-          "description": "Nama parameter yang di-replace di URL, misal \"id\" untuk {id}"
+          "description": "URL query or template placeholder name to replace, e.g. \"id\" to replace {id}"
         },
         "from": {
           "type": "integer",
-          "description": "Nilai awal (inklusif)"
+          "description": "Starting number index (inclusive)"
         },
         "to": {
           "type": "integer",
-          "description": "Nilai akhir (inklusif)"
+          "description": "Ending number index (inclusive)"
         }
       }
     },
 
     "CursorPagination": {
       "type": "object",
-      "description": "Pagination berbasis cursor — loop sampai cursor null",
+      "description": "Cursor-based token pagination, loops until the next cursor property is null",
       "required": ["type", "param", "nextPath"],
       "additionalProperties": false,
       "properties": {
@@ -202,18 +202,18 @@
         },
         "param": {
           "type": "string",
-          "description": "Nama query parameter untuk cursor, misal \"cursor\" atau \"after\""
+          "description": "Query query param name for cursor token, e.g. \"cursor\" or \"after\""
         },
         "nextPath": {
           "type": "string",
-          "description": "Dot-path ke next cursor di response JSON, misal \"meta.next_cursor\""
+          "description": "Dot-path to extract the next page token from responses, e.g. \"meta.next_cursor\""
         }
       }
     },
 
     "NoPagination": {
       "type": "object",
-      "description": "Tanpa pagination — single request",
+      "description": "No pagination — single request flow",
       "required": ["type"],
       "additionalProperties": false,
       "properties": {
@@ -224,7 +224,7 @@
     },
 
     "TargetConfig": {
-      "description": "Konfigurasi target database",
+      "description": "Database target configuration",
       "oneOf": [
         { "$ref": "#/$defs/PostgresTarget" },
         { "$ref": "#/$defs/SqliteTarget" }
@@ -233,7 +233,7 @@
 
     "PostgresTarget": {
       "type": "object",
-      "description": "Tulis ke database PostgreSQL",
+      "description": "Write data to a PostgreSQL database",
       "required": ["type", "connectionString", "table"],
       "additionalProperties": false,
       "properties": {
@@ -242,19 +242,19 @@
         },
         "connectionString": {
           "type": "string",
-          "description": "PostgreSQL connection string",
+          "description": "PostgreSQL connection URI string",
           "examples": ["postgresql://user:pass@localhost:5432/mydb"]
         },
         "table": {
           "type": "string",
-          "description": "Nama tabel target"
+          "description": "Target database table name"
         }
       }
     },
 
     "SqliteTarget": {
       "type": "object",
-      "description": "Tulis ke database SQLite",
+      "description": "Write data to a SQLite database",
       "required": ["type", "filePath", "table"],
       "additionalProperties": false,
       "properties": {
@@ -263,30 +263,30 @@
         },
         "filePath": {
           "type": "string",
-          "description": "Path ke file SQLite database",
+          "description": "Local path to the SQLite database file",
           "examples": ["./local.db"]
         },
         "table": {
           "type": "string",
-          "description": "Nama tabel target"
+          "description": "Target database table name"
         }
       }
     },
 
     "OperationConfig": {
       "type": "object",
-      "description": "Mode operasi tulis ke database",
+      "description": "Mode of writing entries to database tables",
       "required": ["mode"],
       "additionalProperties": false,
       "properties": {
         "mode": {
           "type": "string",
           "enum": ["insert", "upsert", "update"],
-          "description": "insert = INSERT biasa | upsert = INSERT ON CONFLICT UPDATE | update = UPDATE WHERE"
+          "description": "insert = normal insert (fails on duplicate) | upsert = insert or update on conflict | update = update existing rows using matching condition"
         },
         "conflictOn": {
           "type": "array",
-          "description": "Kolom untuk ON CONFLICT (wajib untuk mode upsert)",
+          "description": "Column names triggering ON CONFLICT upsert updates (required for upsert mode)",
           "items": {
             "type": "string"
           },
@@ -294,7 +294,7 @@
         },
         "updateWhere": {
           "type": "array",
-          "description": "Kolom WHERE untuk UPDATE (wajib untuk mode update)",
+          "description": "Primary key / column matching attributes for database updates (required for update mode)",
           "items": {
             "$ref": "#/$defs/UpdateWhereClause"
           },
@@ -323,17 +323,17 @@
 
     "UpdateWhereClause": {
       "type": "object",
-      "description": "Mapping kolom WHERE untuk mode update",
+      "description": "Column matching configuration for update operations",
       "required": ["column", "fromField"],
       "additionalProperties": false,
       "properties": {
         "column": {
           "type": "string",
-          "description": "Nama kolom di tabel target untuk WHERE clause"
+          "description": "Target database table column name used for matching"
         },
         "fromField": {
           "type": "string",
-          "description": "Nama field dari source yang di-match ke kolom"
+          "description": "Source item field name providing the value to match"
         }
       }
     },
@@ -350,47 +350,50 @@
         "trim",
         "nullIfEmpty"
       ],
-      "description": "toInt = parse integer | toFloat = parse float | toString = konversi ke string | toISODate = parse ke ISO 8601 | toLower = lowercase | toUpper = uppercase | trim = hapus whitespace | nullIfEmpty = null kalau kosong"
+      "description": "toInt = parse as integer | toFloat = parse as float | toString = convert to string | toISODate = parse to ISO 8601 string | toLower = lowercase string | toUpper = uppercase string | trim = trim outer whitespace | nullIfEmpty = return null if field is empty or blank"
     },
 
     "MappingRule": {
       "type": "object",
-      "description": "Aturan mapping satu field dari source ke kolom target",
+      "description": "Rule defining mapping from a source field to a target table column",
       "required": ["from", "to"],
       "additionalProperties": false,
       "properties": {
         "from": {
           "type": "string",
-          "description": "Dot-path ke field di source, misal \"equran.namaLatin\" atau \"SKU\""
+          "description": "Dot-path identifier to extract from the source item, e.g. \"user.profile.id\" or \"SKU\""
         },
         "to": {
           "type": "string",
-          "description": "Nama kolom di tabel target database"
+          "description": "Target column name in the database table"
         },
         "transform": {
           "$ref": "#/$defs/TransformKey"
         },
         "default": {
-          "description": "Nilai default kalau source field null/undefined"
+          "description": "Fallback value if source field extracts to null or undefined"
         },
         "expand": {
           "type": "boolean",
-          "description": "Jika true, field ini adalah array yang di-expand jadi multiple rows",
+          "description": "When true, this field contains a nested array which is expanded/flattened into multiple rows",
           "default": false
         },
         "mapping": {
           "type": "array",
-          "description": "Child mapping rules (wajib jika expand: true)",
+          "description": "Nested mapping rules applied to child elements (required when expand is true)",
           "items": {
             "$ref": "#/$defs/MappingRule"
           }
         }
       },
       "if": {
-        "properties": { "expand": { "const": true } }
+        "required": ["expand"],
+        "properties": {
+          "expand": { "const": true }
+        }
       },
       "then": {
-        "required": ["from", "to", "mapping"]
+        "required": ["mapping"]
       }
     }
   }

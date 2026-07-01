@@ -30,8 +30,13 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # IntelliJ based IDEs
 .idea
 
-# Finder (MacOS) folder config
+# finder (MacOS) folder config
 .DS_Store
+
+# pipeline output data
+pipelines/*/output/*.db
+pipelines/*/output/*.sqlite
+datapipe-failed.json
 
 # Temp
 temp/

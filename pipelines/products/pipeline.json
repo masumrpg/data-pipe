@@ -1,24 +1,24 @@
 {
-  "$schema": "./pipeline.schema.json",
-  "name": "Import produk dari CSV",
+  "$schema": "../pipeline.schema.json",
+  "name": "Import Products from CSV",
   "version": "1.0",
 
   "source": {
     "type": "csv",
-    "filePath": "./exports/products.csv",
+    "filePath": "./pipelines/products/input/products.csv",
     "delimiter": ",",
     "hasHeader": true
   },
 
   "target": {
     "type": "sqlite",
-    "filePath": "./local.db",
+    "filePath": "./pipelines/products/output/products.db",
     "table": "products"
   },
 
   "operation": {
-    "mode": "update",
-    "updateWhere": [{ "column": "sku", "fromField": "SKU" }]
+    "mode": "upsert",
+    "conflictOn": ["sku"]
   },
 
   "mapping": [

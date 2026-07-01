@@ -565,14 +565,15 @@ pipelines/templates/
 **Cara pakai:**
 
 ```bash
-# 1. Copy template
-cp pipelines/templates/template-csv-to-postgres.json pipelines/my-import.json
+# 1. Copy template into a project folder
+mkdir -p pipelines/my-project
+cp pipelines/templates/template-csv-to-postgres.json pipelines/my-project/pipeline.json
 
-# 2. Edit — ganti semua ___PLACEHOLDER___
-#    IDE akan kasih autocomplete karena $schema!
+# 2. Edit — replace all ___PLACEHOLDER___
+#    IDE autocomplete is enabled due to $schema!
 
-# 3. Jalankan
-bun run src/index.tsx --pipeline pipelines/my-import.json
+# 3. Run
+bun run src/index.tsx --pipeline pipelines/my-project/pipeline.json
 ```
 
 ---
@@ -648,6 +649,17 @@ data-pipe/
 │       └── types.ts              ← semua types
 ├── pipelines/
 │   ├── pipeline.schema.json      ← JSON Schema
+│   ├── equran/                   ← equran project
+│   │   ├── pipeline.json         ← pipeline config
+│   │   ├── input/                ← input folder
+│   │   └── output/               ← output folder
+│   ├── products/                 ← products project
+│   │   ├── pipeline.json         
+│   │   ├── input/
+│   │   │   └── products.csv
+│   │   ├── output/
+│   │   │   └── products.db
+│   │   └── init-db.ts            ← SQLite DB initializer
 │   ├── samples/                  ← contoh siap pakai
 │   └── templates/                ← template copas
 ├── package.json
