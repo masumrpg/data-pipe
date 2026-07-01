@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun run src/index.tsx",
     "start": "bun run src/index.tsx",
-    "build": "bun build src/index.tsx --outfile dist/datapipe.js --target bun"
+    "build": "bun build src/index.tsx --outfile dist/datapipe.js --target bun",
+    "compile": "bun build --compile --external react-devtools-core src/index.tsx --outfile dist/datapipe"
   },
   "dependencies": {
     "ink": "^7.1.0",
