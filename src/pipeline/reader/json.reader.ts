@@ -22,7 +22,7 @@ function getByPath(obj: unknown, path: string): unknown {
 export class JsonReader implements Reader {
   constructor(private config: JsonSourceConfig) {}
 
-  async fetchAll(onProgress: (fetched: number, total: number) => void): Promise<unknown[]> {
+  async fetchAll(onProgress: (fetched: number, total: number, current?: string | number) => void): Promise<unknown[]> {
     const filePath = resolve(this.config.filePath);
 
     // Check file exists
@@ -71,7 +71,7 @@ export class JsonReader implements Reader {
       data = [parsed];
     }
 
-    onProgress(data.length, data.length);
+    onProgress(data.length, data.length, 'file');
     return data;
   }
 }

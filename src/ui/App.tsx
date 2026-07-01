@@ -54,6 +54,26 @@ export function App({ config, dryRun }: Props) {
             hasFailed={failed.length > 0}
           />
         )}
+        {status === 'fetching' && state.fetchProgress && (
+          <ProgressBar
+            done={state.fetchProgress.fetched}
+            total={state.fetchProgress.total}
+            label="pages"
+          />
+        )}
+        {status === 'fetching' && state.fetchProgress?.current && (
+          <Box marginLeft={1}>
+            <Text bold color="yellow">➔ Requesting: </Text>
+            <Text dimColor>Page/Index {state.fetchProgress.current}</Text>
+          </Box>
+        )}
+        {(status === 'running' || status === 'paused') && state.currentItem && (
+          <Box marginLeft={1}>
+            <Text bold color="magenta">➔ Processing: </Text>
+            <Text bold color="white">[{state.currentItem.index}/{state.currentItem.total}] </Text>
+            <Text color="cyan">{state.currentItem.label}</Text>
+          </Box>
+        )}
       </Box>
 
       {/* Log */}

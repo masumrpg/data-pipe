@@ -344,13 +344,14 @@
         "toInt",
         "toFloat",
         "toString",
+        "toJsonString",
         "toISODate",
         "toLower",
         "toUpper",
         "trim",
         "nullIfEmpty"
       ],
-      "description": "toInt = parse as integer | toFloat = parse as float | toString = convert to string | toISODate = parse to ISO 8601 string | toLower = lowercase string | toUpper = uppercase string | trim = trim outer whitespace | nullIfEmpty = return null if field is empty or blank"
+      "description": "toInt = parse as integer | toFloat = parse as float | toString = convert to string | toJsonString = stringify object to JSON string | toISODate = parse to ISO 8601 string | toLower = lowercase string | toUpper = uppercase string | trim = trim outer whitespace | nullIfEmpty = return null if field is empty or blank"
     },
 
     "MappingRule": {

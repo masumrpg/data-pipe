@@ -17,8 +17,10 @@ export function usePipeline(config: PipelineConfig, dryRun: boolean = false) {
     engine.on('progress', (pg)  => setState(p => ({ ...p, done: pg.done })));
     engine.on('log',      (l: LogEntry) => setState(p => ({ ...p, logs: [...p.logs.slice(-200), l] })));
     engine.on('item-failed', (f) => setState(p => ({ ...p, failed: [...p.failed, f] })));
-    engine.on('done',     (s)   => setState(s));
-    engine.on('error',    ()    => setState(p => ({ ...p, status: 'error' })));
+    engine.on('done',     (s)   => setState({ ...s, fetchProgress: null, currentItem: null }));
+    engine.on('error',    ()    => setState(p => ({ ...p, status: 'error', fetchProgress: null, currentItem: null })));
+    engine.on('fetch-progress', (fp) => setState(p => ({ ...p, fetchProgress: fp })));
+    engine.on('item-processing', (ip) => setState(p => ({ ...p, currentItem: ip, fetchProgress: null })));
 
     // Auto-start
     engine.run();

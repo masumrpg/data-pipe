@@ -260,7 +260,7 @@ function validateMappingRule(rule: unknown, index: number) {
     throw configError(`mapping[${index}].to is required (string).`);
   }
 
-  const validTransforms = ['toInt', 'toFloat', 'toString', 'toISODate', 'toLower', 'toUpper', 'trim', 'nullIfEmpty'];
+  const validTransforms = ['toInt', 'toFloat', 'toString', 'toJsonString', 'toISODate', 'toLower', 'toUpper', 'trim', 'nullIfEmpty'];
   if (r['transform'] && !validTransforms.includes(r['transform'] as string)) {
     throw configError(
       `Invalid mapping[${index}].transform "${r['transform']}".`,

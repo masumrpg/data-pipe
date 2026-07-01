@@ -53,13 +53,16 @@ datapipe/
 │   │   ├── pipeline.json
 │   │   ├── input/
 │   │   └── output/
-│   └── products/
-│       ├── pipeline.json
-│       ├── input/
-│       │   └── products.csv
-│       ├── output/
-│       │   └── products.db
-│       └── init-db.ts
+│   ├── products/
+│   │   ├── pipeline.json
+│   │   ├── input/
+│   │   │   └── products.csv
+│   │   ├── output/
+│   │   │   └── products.db
+│   │   └── init-db.ts
+│   └── quran/
+│       ├── init-db.ts          ← inisialisasi schema DB postgres
+│       └── pipeline.json       ← pipeline config untuk generic CLI
 └── package.json
 ```
 
@@ -79,17 +82,20 @@ bun add -d @types/react @types/pg @types/papaparse @types/js-yaml typescript
 ## Cara Pakai
 
 ```bash
-# Jalankan pipeline dari file config
-bun run src/index.tsx --pipeline pipelines/equran/pipeline.json
+# Inisialisasi DB postgres & schema untuk quran
+bun run pipelines/quran/init-db.ts
+
+# Seed data quran (fetch API & write ke postgres)
+bun run src/index.tsx --pipeline pipelines/quran/pipeline.json
 
 # Dry run — fetch + mapping tapi tidak insert ke DB
-bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --dry-run
+bun run src/index.tsx --pipeline pipelines/quran/pipeline.json --dry-run
 
 # Retry item gagal dari run sebelumnya (baca dari failed.json)
-bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --retry
+bun run src/index.tsx --pipeline pipelines/quran/pipeline.json --retry
 
 # Test koneksi DB saja
-bun run src/index.tsx --pipeline pipelines/equran/pipeline.json --test-connection
+bun run src/index.tsx --pipeline pipelines/quran/pipeline.json --test-connection
 ```
 
 ---

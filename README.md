@@ -649,10 +649,6 @@ data-pipe/
 │       └── types.ts              ← semua types
 ├── pipelines/
 │   ├── pipeline.schema.json      ← JSON Schema
-│   ├── equran/                   ← equran project
-│   │   ├── pipeline.json         ← pipeline config
-│   │   ├── input/                ← input folder
-│   │   └── output/               ← output folder
 │   ├── products/                 ← products project
 │   │   ├── pipeline.json         
 │   │   ├── input/
@@ -660,6 +656,9 @@ data-pipe/
 │   │   ├── output/
 │   │   │   └── products.db
 │   │   └── init-db.ts            ← SQLite DB initializer
+│   ├── quran/                    ← quran postgres project
+│   │   ├── init-db.ts            ← Postgres database & schema creator
+│   │   └── pipeline.json         ← Seeding config for generic CLI
 │   ├── samples/                  ← contoh siap pakai
 │   └── templates/                ← template copas
 ├── package.json
@@ -723,6 +722,26 @@ case 'my-db': return new MyWriter(config);
 ```
 
 3. Update type di `src/shared/types.ts` — tambah union member baru di `TargetConfig`.
+
+---
+
+## 🕌 Project: Quran Relational Database (PostgreSQL)
+
+Project `pipelines/quran/` adalah seeder khusus untuk menarik data tafsir, surat, dan ayat dari API `equran.id` ke dalam database relasional ternormalisasi PostgreSQL `quran_pipe_data`.
+
+### Langkah-langkah Menjalankan:
+
+1. **Inisialisasi Database & Tabel**
+   Command ini akan menghubungkan ke Postgres lokal dengan username `ma-sum` (tanpa password), membuat database `quran_pipe_data`, lalu membuat seluruh tabel, indeks, foreign keys, serta pre-seed 5 reciters:
+   ```bash
+   bun run pipelines/quran/init-db.ts
+   ```
+
+2. **Jalankan Seeder (Fetch & Insert)**
+   Menarik seluruh data dari list surah, detail ayat, dan tafsir (114 surah) lalu memasukkannya ke database secara transaksional menggunakan generic CLI:
+   ```bash
+   bun run src/index.tsx --pipeline pipelines/quran/pipeline.json
+   ```
 
 ---
 

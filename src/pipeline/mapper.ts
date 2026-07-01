@@ -14,6 +14,7 @@ const TRANSFORMS: Record<TransformKey, (val: unknown) => unknown> = {
     return isNaN(n) ? null : n;
   },
   toString:    (v) => (v == null ? '' : String(v)),
+  toJsonString: (v) => (v == null ? null : typeof v === 'object' ? JSON.stringify(v) : String(v)),
   toISODate:   (v) => {
     if (v == null) return null;
     const d = new Date(String(v));
@@ -27,7 +28,7 @@ const TRANSFORMS: Record<TransformKey, (val: unknown) => unknown> = {
 
 /**
  * Resolve a dot-path value from a nested object.
- * Supports bracket-like syntax for array matching: "tajweed.ayahs[nomorAyat].text"
+ * Supports bracket-like syntax for array matching: "users.addresses[addressId].city"
  */
 function getByPath(obj: unknown, path: string): unknown {
   const parts = path.split('.');
@@ -36,7 +37,7 @@ function getByPath(obj: unknown, path: string): unknown {
   for (const part of parts) {
     if (current == null) return undefined;
 
-    // Handle array index reference like "ayahs[nomorAyat]"
+    // Handle array index reference like "addresses[addressId]"
     const bracketMatch = part.match(/^(\w+)\[(\w+)\]$/);
     if (bracketMatch) {
       const [, arrayKey, indexKey] = bracketMatch;
@@ -108,7 +109,7 @@ export function applyMapping(
 
       const row: Record<string, unknown> = { ...parentFields };
       for (const childRule of expandRule.mapping) {
-        // Handle cross-source references like "tajweed.ayahs[nomorAyat].text"
+        // Handle cross-source references like "users.addresses[addressId].city"
         let val: unknown;
         if (childRule.from.includes('[')) {
           // Complex cross-reference
@@ -135,7 +136,7 @@ export function applyMapping(
 }
 
 /**
- * Resolve a cross-source reference like "tajweed.ayahs[nomorAyat].text".
+ * Resolve a cross-source reference like "users.addresses[addressId].city".
  * Finds the item in the array where a matching key equals the current item's value.
  */
 function resolveCrossRef(
@@ -143,7 +144,7 @@ function resolveCrossRef(
   currentItem: Record<string, unknown>,
   fullContext: Record<string, unknown>,
 ): unknown {
-  // Parse "tajweed.ayahs[nomorAyat].text"
+  // Parse "users.addresses[addressId].city"
   const bracketIdx = path.indexOf('[');
   const bracketEnd = path.indexOf(']');
   if (bracketIdx === -1 || bracketEnd === -1) return undefined;
@@ -160,10 +161,21 @@ function resolveCrossRef(
   const matchValue = getByPath(currentItem, indexField);
   if (matchValue == null) return undefined;
 
-  // Find matching item in the array by the index field
+  // Find matching item in the array (with generic fallback matching)
   const found = arr.find((el: unknown) => {
+    if (el == null || typeof el !== 'object') return false;
+
+    // 1. Try exact index field name match
     const elVal = getByPath(el, indexField);
-    return elVal == matchValue;
+    if (elVal == matchValue) return true;
+
+    // 2. Try generic property matching for key mismatches (checks all keys)
+    for (const key of Object.keys(el)) {
+      if ((el as Record<string, unknown>)[key] == matchValue) {
+        return true;
+      }
+    }
+    return false;
   });
 
   if (!found) return undefined;

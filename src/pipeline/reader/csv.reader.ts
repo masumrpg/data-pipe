@@ -14,7 +14,7 @@ type CsvSourceConfig = {
 export class CsvReader implements Reader {
   constructor(private config: CsvSourceConfig) {}
 
-  async fetchAll(onProgress: (fetched: number, total: number) => void): Promise<unknown[]> {
+  async fetchAll(onProgress: (fetched: number, total: number, current?: string | number) => void): Promise<unknown[]> {
     const filePath = resolve(this.config.filePath);
 
     // Check file exists
@@ -57,7 +57,7 @@ export class CsvReader implements Reader {
       throw parseError(filePath, 'CSV', new Error('CSV tidak memiliki data (0 baris).'));
     }
 
-    onProgress(data.length, data.length);
+    onProgress(data.length, data.length, 'file');
     return data;
   }
 }

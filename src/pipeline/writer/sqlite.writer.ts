@@ -31,7 +31,7 @@ export class SqliteWriter implements Writer {
 
     switch (op.mode) {
       case 'insert': {
-        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+        const sql = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')})`;
         this.db.prepare(sql).run(...(values as any[]));
         break;
       }
@@ -40,13 +40,13 @@ export class SqliteWriter implements Writer {
         if (!op.conflictOn || op.conflictOn.length === 0) {
           throw new Error('upsert requires conflictOn');
         }
-        const conflict = op.conflictOn.join(', ');
+        const conflict = op.conflictOn.map(c => `"${c}"`).join(', ');
         const updates = columns
           .filter((c) => !op.conflictOn!.includes(c))
-          .map((c) => `${c} = excluded.${c}`)
+          .map((c) => `"${c}" = excluded."${c}"`)
           .join(', ');
 
-        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflict}) DO UPDATE SET ${updates}`;
+        const sql = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflict}) DO UPDATE SET ${updates}`;
         this.db.prepare(sql).run(...(values as any[]));
         break;
       }
@@ -64,14 +64,14 @@ export class SqliteWriter implements Writer {
         const whereColumns = op.updateWhere.map((w) => w.column);
         for (const col of columns) {
           if (!whereColumns.includes(col)) {
-            setClauses.push(`${col} = ?`);
+            setClauses.push(`"${col}" = ?`);
             params.push(row[col]);
           }
         }
 
         // Build WHERE clause
         for (const w of op.updateWhere) {
-          whereClause.push(`${w.column} = ?`);
+          whereClause.push(`"${w.column}" = ?`);
           params.push(row[w.column]);
         }
 

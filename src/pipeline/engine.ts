@@ -5,6 +5,40 @@ import { applyMapping } from './mapper';
 import type { PipelineConfig, RunState, LogEntry } from '../shared/types';
 import { DataPipeError, connectionError, writeError, fetchError } from '../shared/errors';
 
+function getItemLabel(item: unknown): string {
+  if (item == null) return '';
+  if (typeof item !== 'object') return String(item);
+  
+  const record = item as Record<string, unknown>;
+
+  // Check top-level candidates
+  const candidates = ['namaLatin', 'name', 'title', 'nama', 'sku', 'id', 'nomor'];
+  for (const key of candidates) {
+    if (record[key] !== undefined) {
+      return String(record[key]);
+    }
+  }
+
+  // Check nested candidates (in case requests are merged, e.g. item.equran.namaLatin)
+  for (const key of Object.keys(record)) {
+    const val = record[key];
+    if (val && typeof val === 'object') {
+      const nestedLabel = getItemLabel(val);
+      if (nestedLabel) return nestedLabel;
+    }
+  }
+
+  // Fallback to first string/number value
+  for (const key of Object.keys(record)) {
+    const val = record[key];
+    if (typeof val === 'string' || typeof val === 'number') {
+      return `${key}: ${val}`;
+    }
+  }
+
+  return '';
+}
+
 export class PipelineEngine extends EventEmitter {
   private paused = false;
   private cancelled = false;
@@ -76,8 +110,8 @@ export class PipelineEngine extends EventEmitter {
       let items: unknown[];
       try {
         const reader = createReader(this.config.source);
-        items = await reader.fetchAll((fetched, total) => {
-          this.emit('fetch-progress', { fetched, total });
+        items = await reader.fetchAll((fetched, total, current) => {
+          this.emit('fetch-progress', { fetched, total, current });
         });
       } catch (err: any) {
         const dpErr = err instanceof DataPipeError ? err : this.wrapFetchError(err);
@@ -111,6 +145,13 @@ export class PipelineEngine extends EventEmitter {
 
       for (let idx = 0; idx < items.length; idx++) {
         const item = items[idx];
+
+        // Emit item processing event
+        this.emit('item-processing', {
+          index: idx + 1,
+          total: items.length,
+          label: getItemLabel(item),
+        });
 
         // Handle pause
         while (this.paused && !this.cancelled) {

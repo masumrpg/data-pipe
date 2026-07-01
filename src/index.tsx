@@ -45,8 +45,8 @@ function printUsage() {
     --help, -h              Display this help menu
 
   \x1b[1mExamples:\x1b[0m
-    bun run src/index.tsx --pipeline pipelines/quran-seed.json
-    bun run src/index.tsx -p pipelines/import-products.json --dry-run
+    bun run src/index.tsx --pipeline pipelines/my-project/pipeline.json
+    bun run src/index.tsx -p pipelines/my-project/pipeline.json --dry-run
 
   \x1b[1mKeyboard controls during execution:\x1b[0m
     [p] pause/resume   [c] cancel   [r] retry failed   [q] quit

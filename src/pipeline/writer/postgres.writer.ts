@@ -31,7 +31,7 @@ export class PostgresWriter implements Writer {
 
     switch (op.mode) {
       case 'insert': {
-        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')})`;
+        const sql = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')})`;
         await this.client.query(sql, values);
         break;
       }
@@ -40,13 +40,13 @@ export class PostgresWriter implements Writer {
         if (!op.conflictOn || op.conflictOn.length === 0) {
           throw new Error('upsert memerlukan conflictOn');
         }
-        const conflict = op.conflictOn.join(', ');
+        const conflict = op.conflictOn.map(c => `"${c}"`).join(', ');
         const updates = columns
           .filter((c) => !op.conflictOn!.includes(c))
-          .map((c) => `${c} = EXCLUDED.${c}`)
+          .map((c) => `"${c}" = EXCLUDED."${c}"`)
           .join(', ');
 
-        const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflict}) DO UPDATE SET ${updates}`;
+        const sql = `INSERT INTO ${table} (${columns.map(c => `"${c}"`).join(', ')}) VALUES (${placeholders.join(', ')}) ON CONFLICT (${conflict}) DO UPDATE SET ${updates}`;
         await this.client.query(sql, values);
         break;
       }
@@ -65,7 +65,7 @@ export class PostgresWriter implements Writer {
         const whereColumns = op.updateWhere.map((w) => w.column);
         for (const col of columns) {
           if (!whereColumns.includes(col)) {
-            setClauses.push(`${col} = $${paramIdx}`);
+            setClauses.push(`"${col}" = $${paramIdx}`);
             params.push(row[col]);
             paramIdx++;
           }
@@ -73,7 +73,7 @@ export class PostgresWriter implements Writer {
 
         // Build WHERE clause
         for (const w of op.updateWhere) {
-          whereClause.push(`${w.column} = $${paramIdx}`);
+          whereClause.push(`"${w.column}" = $${paramIdx}`);
           params.push(row[w.column]);
           paramIdx++;
         }

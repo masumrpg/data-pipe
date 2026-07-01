@@ -32,7 +32,7 @@ export type OperationConfig = {
 };
 
 export type MappingRule = {
-  from: string;              // dot-path dari source, misal "equran.namaLatin"
+  from: string;              // dot-path from source, e.g. "profile.name"
   to: string;                // nama kolom di DB target
   transform?: TransformKey;
   default?: unknown;         // nilai default kalau null/undefined
@@ -44,6 +44,7 @@ export type TransformKey =
   | 'toInt'
   | 'toFloat'
   | 'toString'
+  | 'toJsonString'
   | 'toISODate'
   | 'toLower'
   | 'toUpper'
@@ -74,11 +75,13 @@ export type RunState = {
   done: number;
   failed: { item: unknown; error: string }[];
   logs: LogEntry[];
+  fetchProgress?: { fetched: number; total: number; current?: string | number } | null;
+  currentItem?: { index: number; total: number; label: string } | null;
 };
 
 // Reader & Writer interfaces
 export interface Reader {
-  fetchAll(onProgress: (fetched: number, total: number) => void): Promise<unknown[]>;
+  fetchAll(onProgress: (fetched: number, total: number, current?: string | number) => void): Promise<unknown[]>;
 }
 
 export interface Writer {

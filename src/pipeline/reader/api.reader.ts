@@ -73,7 +73,7 @@ async function safeFetch(url: string, headers?: Record<string, string>): Promise
 export class ApiReader implements Reader {
   constructor(private config: ApiSourceConfig) {}
 
-  async fetchAll(onProgress: (fetched: number, total: number) => void): Promise<unknown[]> {
+  async fetchAll(onProgress: (fetched: number, total: number, current?: string | number) => void): Promise<unknown[]> {
     const { pagination, requests, mergeKey, delayMs } = this.config;
 
     if (pagination.type === 'range') {
@@ -93,7 +93,7 @@ export class ApiReader implements Reader {
     requests: ApiRequest[],
     mergeKey: string,
     delayMs: number,
-    onProgress: (fetched: number, total: number) => void,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
   ): Promise<unknown[]> {
     const results: unknown[] = [];
     const total = pagination.to - pagination.from + 1;
@@ -112,7 +112,7 @@ export class ApiReader implements Reader {
       merged[mergeKey] = i;
       results.push(merged);
 
-      onProgress(results.length, total);
+      onProgress(results.length, total, i);
 
       if (delayMs > 0 && i < pagination.to) {
         await delay(delayMs);
@@ -127,7 +127,7 @@ export class ApiReader implements Reader {
     requests: ApiRequest[],
     mergeKey: string,
     delayMs: number,
-    onProgress: (fetched: number, total: number) => void,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
   ): Promise<unknown[]> {
     const results: unknown[] = [];
     let cursor: string | null = null;
@@ -138,8 +138,8 @@ export class ApiReader implements Reader {
       if (page >= maxPages) {
         throw new DataPipeError(
           'FETCH_ERROR',
-          `Cursor pagination melebihi batas ${maxPages} halaman.`,
-          'Kemungkinan infinite loop — periksa nextPath di config.',
+          `Cursor pagination exceeded limit of ${maxPages} pages.`,
+          'Potential infinite loop detected — verify nextPath in config.',
         );
       }
 
@@ -164,7 +164,7 @@ export class ApiReader implements Reader {
       }
 
       page++;
-      onProgress(results.length, results.length);
+      onProgress(results.length, results.length, cursor ?? 'last');
 
       if (delayMs > 0 && cursor) {
         await delay(delayMs);
@@ -177,7 +177,7 @@ export class ApiReader implements Reader {
   private async fetchSingle(
     requests: ApiRequest[],
     mergeKey: string,
-    onProgress: (fetched: number, total: number) => void,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
   ): Promise<unknown[]> {
     const merged: Record<string, unknown> = {};
 
@@ -187,7 +187,7 @@ export class ApiReader implements Reader {
       merged[req.id] = data;
     }
 
-    onProgress(1, 1);
+    onProgress(1, 1, 'single');
 
     // If single request returns array, return as-is
     if (requests.length === 1) {
