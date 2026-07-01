@@ -1,0 +1,44 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "API (Cursor) → PostgreSQL (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "cursor",
+      "param": "cursor",
+      "nextPath": "meta.next_cursor"
+    },
+    "requests": [
+      {
+        "id": "items",
+        "url": "https://api.example.com/items?limit=100",
+        "resultPath": "data",
+        "headers": {
+          "Authorization": "Bearer YOUR_TOKEN_HERE"
+        }
+      }
+    ],
+    "mergeKey": "id",
+    "delayMs": 150
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "items"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["external_id"]
+  },
+
+  "mapping": [
+    { "from": "id",     "to": "external_id",  "transform": "toInt" },
+    { "from": "name",   "to": "name",         "transform": "trim" },
+    { "from": "value",  "to": "value",        "transform": "toFloat" },
+    { "from": "status", "to": "status",       "transform": "toLower" }
+  ]
+}

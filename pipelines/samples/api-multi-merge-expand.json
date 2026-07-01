@@ -1,0 +1,56 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "API Multi-Source Merge → PostgreSQL (UPSERT + Expand)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "id",
+      "from": 1,
+      "to": 10
+    },
+    "requests": [
+      {
+        "id": "primary",
+        "url": "https://api.example.com/resource/{id}",
+        "resultPath": "data"
+      },
+      {
+        "id": "detail",
+        "url": "https://api.example.com/resource/{id}/details",
+        "resultPath": "data"
+      }
+    ],
+    "mergeKey": "id",
+    "delayMs": 300
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "resource_items"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["resource_id", "item_id"]
+  },
+
+  "mapping": [
+    { "from": "primary.id",    "to": "resource_id" },
+    { "from": "primary.name",  "to": "resource_name" },
+    {
+      "from": "primary.items",
+      "to": "_expand",
+      "expand": true,
+      "mapping": [
+        { "from": "id",          "to": "item_id",    "transform": "toInt" },
+        { "from": "value",       "to": "value",      "transform": "toFloat" },
+        { "from": "label",       "to": "label",      "transform": "trim" },
+        { "from": "detail.extra[id].info", "to": "extra_info" }
+      ]
+    }
+  ]
+}

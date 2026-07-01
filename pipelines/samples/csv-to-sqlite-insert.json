@@ -1,0 +1,30 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "CSV → SQLite (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "csv",
+    "filePath": "./exports/logs.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./logs.db",
+    "table": "access_logs"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "Timestamp",  "to": "timestamp",   "transform": "toISODate" },
+    { "from": "IP",         "to": "ip_address",  "transform": "trim" },
+    { "from": "Path",       "to": "path" },
+    { "from": "StatusCode", "to": "status_code", "transform": "toInt" },
+    { "from": "UserAgent",  "to": "user_agent",  "transform": "nullIfEmpty" }
+  ]
+}

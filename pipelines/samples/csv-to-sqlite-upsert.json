@@ -1,0 +1,30 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "CSV → SQLite (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "csv",
+    "filePath": "./exports/contacts.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./contacts.db",
+    "table": "contacts"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["email"]
+  },
+
+  "mapping": [
+    { "from": "Name",     "to": "name",     "transform": "trim" },
+    { "from": "Email",    "to": "email",    "transform": "toLower" },
+    { "from": "Phone",    "to": "phone",    "transform": "toString" },
+    { "from": "Company",  "to": "company",  "transform": "nullIfEmpty" }
+  ]
+}

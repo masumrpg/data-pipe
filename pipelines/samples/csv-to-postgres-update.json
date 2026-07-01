@@ -1,0 +1,30 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "CSV → PostgreSQL (UPDATE)",
+  "version": "1.0",
+
+  "source": {
+    "type": "csv",
+    "filePath": "./exports/price-list.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "products"
+  },
+
+  "operation": {
+    "mode": "update",
+    "updateWhere": [{ "column": "sku", "fromField": "SKU" }]
+  },
+
+  "mapping": [
+    { "from": "SKU",       "to": "sku" },
+    { "from": "NewPrice",  "to": "price",       "transform": "toFloat" },
+    { "from": "Discount",  "to": "discount",    "transform": "toFloat" },
+    { "from": "ValidFrom", "to": "valid_from",  "transform": "toISODate" }
+  ]
+}

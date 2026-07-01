@@ -1,0 +1,42 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "___NAMA_PIPELINE___",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "___NAMA_PARAM___",
+      "from": 1,
+      "to": 100
+    },
+    "requests": [
+      {
+        "id": "___ID_REQUEST___",
+        "url": "https://___DOMAIN___/___PATH___/{___NAMA_PARAM___}",
+        "resultPath": "___DOT.PATH.KE.DATA___",
+        "headers": {}
+      }
+    ],
+    "mergeKey": "___NAMA_PARAM___",
+    "delayMs": 200
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "___PATH/KE/DATABASE.db___",
+    "table": "___NAMA_TABEL___"
+  },
+
+  "operation": {
+    "mode": "___insert_ATAU_upsert_ATAU_update___",
+    "conflictOn": ["___KOLOM_UNIK___"],
+    "updateWhere": [{ "column": "___KOLOM_WHERE___", "fromField": "___FIELD_SOURCE___" }]
+  },
+
+  "mapping": [
+    { "from": "___ID_REQUEST___.___field___", "to": "___kolom_db___" },
+    { "from": "___ID_REQUEST___.___field___", "to": "___kolom_db___", "transform": "___toInt|toFloat|toString|toISODate|toLower|toUpper|trim|nullIfEmpty___" }
+  ]
+}

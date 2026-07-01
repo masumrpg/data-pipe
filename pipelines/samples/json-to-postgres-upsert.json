@@ -1,0 +1,31 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → PostgreSQL (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/products.json",
+    "resultPath": "products"
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "products"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["sku"]
+  },
+
+  "mapping": [
+    { "from": "sku",         "to": "sku" },
+    { "from": "name",        "to": "product_name",  "transform": "trim" },
+    { "from": "price",       "to": "price",         "transform": "toFloat" },
+    { "from": "stock",       "to": "stock_qty",     "transform": "toInt" },
+    { "from": "category",    "to": "category",      "default": "uncategorized" },
+    { "from": "updated_at",  "to": "updated_at",    "transform": "toISODate" }
+  ]
+}

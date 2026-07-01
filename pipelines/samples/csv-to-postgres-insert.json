@@ -1,0 +1,31 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "CSV → PostgreSQL (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "csv",
+    "filePath": "./exports/employees.csv",
+    "delimiter": ",",
+    "hasHeader": true
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "employees"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "EmployeeID",  "to": "employee_id",  "transform": "toInt" },
+    { "from": "FullName",    "to": "full_name",     "transform": "trim" },
+    { "from": "Email",       "to": "email",         "transform": "toLower" },
+    { "from": "Department",  "to": "department",    "default": "general" },
+    { "from": "Salary",      "to": "salary",        "transform": "toFloat" },
+    { "from": "JoinDate",    "to": "join_date",     "transform": "toISODate" }
+  ]
+}

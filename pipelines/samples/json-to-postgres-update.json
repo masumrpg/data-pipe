@@ -1,0 +1,28 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → PostgreSQL (UPDATE)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/price-updates.json",
+    "resultPath": "updates"
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "products"
+  },
+
+  "operation": {
+    "mode": "update",
+    "updateWhere": [{ "column": "sku", "fromField": "sku" }]
+  },
+
+  "mapping": [
+    { "from": "sku",       "to": "sku" },
+    { "from": "newPrice",  "to": "price",      "transform": "toFloat" },
+    { "from": "newStock",  "to": "stock_qty",  "transform": "toInt" }
+  ]
+}

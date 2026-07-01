@@ -1,0 +1,31 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "CSV → PostgreSQL (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "csv",
+    "filePath": "./exports/inventory.csv",
+    "delimiter": ";",
+    "hasHeader": true
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "inventory"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["sku", "warehouse_id"]
+  },
+
+  "mapping": [
+    { "from": "SKU",          "to": "sku" },
+    { "from": "WarehouseID",  "to": "warehouse_id",  "transform": "toInt" },
+    { "from": "ProductName",  "to": "product_name",   "transform": "trim" },
+    { "from": "Quantity",     "to": "quantity",        "transform": "toInt" },
+    { "from": "LastUpdated",  "to": "updated_at",     "transform": "toISODate" }
+  ]
+}

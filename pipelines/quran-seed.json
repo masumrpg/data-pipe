@@ -1,0 +1,60 @@
+{
+  "$schema": "./pipeline.schema.json",
+  "name": "Quran Seed — equran.id + tajweed",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "index",
+      "from": 1,
+      "to": 114
+    },
+    "requests": [
+      {
+        "id": "equran",
+        "url": "https://equran.id/api/v2/surat/{index}",
+        "resultPath": "data"
+      },
+      {
+        "id": "tajweed",
+        "url": "https://api.alquran.cloud/v1/surah/{index}/quran-tajweed",
+        "resultPath": "data"
+      }
+    ],
+    "mergeKey": "index",
+    "delayMs": 300
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/qurandb",
+    "table": "quran_ayat"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["nomor_surah", "nomor_ayat"]
+  },
+
+  "mapping": [
+    { "from": "equran.nomor",     "to": "nomor_surah" },
+    { "from": "equran.nama",      "to": "nama_surah" },
+    { "from": "equran.namaLatin", "to": "nama_latin" },
+    { "from": "equran.arti",      "to": "nama_indonesia" },
+    {
+      "from": "equran.ayat",
+      "expand": true,
+      "to": "_expand",
+      "mapping": [
+        { "from": "nomorAyat",               "to": "nomor_ayat" },
+        { "from": "teksArab",                "to": "teks_arab" },
+        { "from": "teksLatin",               "to": "teks_latin" },
+        { "from": "teksIndonesia",           "to": "teks_indonesia" },
+        { "from": "audio.01",               "to": "audio_alafasy" },
+        { "from": "tajweed.ayahs[nomorAyat].text", "to": "teks_arab_tajweed" }
+      ]
+    }
+  ]
+}

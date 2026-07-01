@@ -1,0 +1,28 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → SQLite (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/settings.json",
+    "resultPath": "settings"
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./app.db",
+    "table": "settings"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["key"]
+  },
+
+  "mapping": [
+    { "from": "key",    "to": "key" },
+    { "from": "value",  "to": "value",   "transform": "toString" },
+    { "from": "group",  "to": "group",   "default": "general" }
+  ]
+}

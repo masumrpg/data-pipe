@@ -1,0 +1,26 @@
+{
+  "name": "datapipe",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run src/index.tsx",
+    "start": "bun run src/index.tsx",
+    "build": "bun build src/index.tsx --outfile dist/datapipe.js --target bun"
+  },
+  "dependencies": {
+    "ink": "^7.1.0",
+    "js-yaml": "^5.2.0",
+    "papaparse": "^5.5.4",
+    "pg": "^8.22.0",
+    "react": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/js-yaml": "^4.0.9",
+    "@types/papaparse": "^5.5.2",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.17",
+    "typescript": "^6.0.3"
+  }
+}

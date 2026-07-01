@@ -1,0 +1,55 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "___NAMA_PIPELINE___ (Multi-Source + Expand)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "___NAMA_PARAM___",
+      "from": 1,
+      "to": 100
+    },
+    "requests": [
+      {
+        "id": "___SOURCE_1___",
+        "url": "https://___DOMAIN_1___/___PATH___/{___NAMA_PARAM___}",
+        "resultPath": "___DOT.PATH.KE.DATA___"
+      },
+      {
+        "id": "___SOURCE_2___",
+        "url": "https://___DOMAIN_2___/___PATH___/{___NAMA_PARAM___}",
+        "resultPath": "___DOT.PATH.KE.DATA___"
+      }
+    ],
+    "mergeKey": "___NAMA_PARAM___",
+    "delayMs": 300
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://___USER___:___PASS___@___HOST___:5432/___DB___",
+    "table": "___NAMA_TABEL___"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["___KOLOM_PARENT___", "___KOLOM_CHILD___"]
+  },
+
+  "mapping": [
+    { "from": "___SOURCE_1___.___fieldParent___", "to": "___kolom_parent_db___" },
+    { "from": "___SOURCE_1___.___fieldParent___", "to": "___kolom_parent_db___" },
+    {
+      "from": "___SOURCE_1___.___fieldArray___",
+      "to": "_expand",
+      "expand": true,
+      "mapping": [
+        { "from": "___fieldChild___",                                    "to": "___kolom_child_db___" },
+        { "from": "___fieldChild___",                                    "to": "___kolom_child_db___", "transform": "___TRANSFORM___" },
+        { "from": "___SOURCE_2___.___arrayField___[___matchKey___].___subfield___", "to": "___kolom_cross_ref___" }
+      ]
+    }
+  ]
+}

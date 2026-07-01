@@ -1,0 +1,46 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "API (Range) → PostgreSQL (UPSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "page",
+      "from": 1,
+      "to": 10
+    },
+    "requests": [
+      {
+        "id": "posts",
+        "url": "https://api.example.com/posts?page={page}&limit=20",
+        "resultPath": "data.posts",
+        "headers": {
+          "Authorization": "Bearer YOUR_TOKEN_HERE"
+        }
+      }
+    ],
+    "mergeKey": "page",
+    "delayMs": 200
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "posts"
+  },
+
+  "operation": {
+    "mode": "upsert",
+    "conflictOn": ["external_id"]
+  },
+
+  "mapping": [
+    { "from": "posts.id",         "to": "external_id",  "transform": "toInt" },
+    { "from": "posts.title",      "to": "title",        "transform": "trim" },
+    { "from": "posts.body",       "to": "body" },
+    { "from": "posts.author",     "to": "author" },
+    { "from": "posts.created_at", "to": "created_at",   "transform": "toISODate" }
+  ]
+}

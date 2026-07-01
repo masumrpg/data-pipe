@@ -1,0 +1,42 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "API (Range) → PostgreSQL (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "id",
+      "from": 1,
+      "to": 50
+    },
+    "requests": [
+      {
+        "id": "user",
+        "url": "https://jsonplaceholder.typicode.com/users/{id}",
+        "headers": {}
+      }
+    ],
+    "mergeKey": "id",
+    "delayMs": 100
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "users"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "user.id",       "to": "external_id", "transform": "toInt" },
+    { "from": "user.name",     "to": "full_name",   "transform": "trim" },
+    { "from": "user.email",    "to": "email",       "transform": "toLower" },
+    { "from": "user.phone",    "to": "phone",       "transform": "toString" },
+    { "from": "user.website",  "to": "website",     "transform": "nullIfEmpty" }
+  ]
+}

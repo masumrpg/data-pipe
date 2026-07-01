@@ -1,0 +1,28 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → SQLite (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/contacts.json",
+    "resultPath": "contacts"
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./local.db",
+    "table": "contacts"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "name",    "to": "name",    "transform": "trim" },
+    { "from": "phone",   "to": "phone",   "transform": "toString" },
+    { "from": "email",   "to": "email",   "transform": "toLower" },
+    { "from": "notes",   "to": "notes",   "transform": "nullIfEmpty" }
+  ]
+}

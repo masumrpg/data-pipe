@@ -1,0 +1,38 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "API (No Pagination) → SQLite (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "none"
+    },
+    "requests": [
+      {
+        "id": "todos",
+        "url": "https://jsonplaceholder.typicode.com/todos",
+        "headers": {}
+      }
+    ],
+    "mergeKey": "id",
+    "delayMs": 0
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./todos.db",
+    "table": "todos"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "todos.id",        "to": "todo_id",    "transform": "toInt" },
+    { "from": "todos.userId",    "to": "user_id",    "transform": "toInt" },
+    { "from": "todos.title",     "to": "title",      "transform": "trim" },
+    { "from": "todos.completed", "to": "completed",  "transform": "toString" }
+  ]
+}

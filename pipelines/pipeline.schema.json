@@ -1,0 +1,397 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://datapipe.local/pipeline.schema.json",
+  "title": "DataPipe Pipeline Config",
+  "description": "Konfigurasi pipeline untuk DataPipe CLI — define source, mapping, dan target.",
+  "type": "object",
+  "required": ["name", "version", "source", "target", "operation", "mapping"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path ke JSON Schema (untuk IDE autocomplete)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Nama pipeline, ditampilkan di UI"
+    },
+    "version": {
+      "type": "string",
+      "description": "Versi konfigurasi pipeline",
+      "default": "1.0"
+    },
+    "source": {
+      "$ref": "#/$defs/SourceConfig"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetConfig"
+    },
+    "operation": {
+      "$ref": "#/$defs/OperationConfig"
+    },
+    "mapping": {
+      "type": "array",
+      "description": "Daftar aturan mapping dari source field ke kolom target",
+      "items": {
+        "$ref": "#/$defs/MappingRule"
+      },
+      "minItems": 1
+    }
+  },
+
+  "$defs": {
+    "SourceConfig": {
+      "description": "Konfigurasi sumber data",
+      "oneOf": [
+        { "$ref": "#/$defs/JsonSource" },
+        { "$ref": "#/$defs/CsvSource" },
+        { "$ref": "#/$defs/ApiSource" }
+      ]
+    },
+
+    "JsonSource": {
+      "type": "object",
+      "description": "Baca data dari file JSON lokal",
+      "required": ["type", "filePath"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "json"
+        },
+        "filePath": {
+          "type": "string",
+          "description": "Path ke file JSON (relatif atau absolut)"
+        },
+        "resultPath": {
+          "type": "string",
+          "description": "Dot-path ke array data di dalam JSON, misal \"data.users\""
+        }
+      }
+    },
+
+    "CsvSource": {
+      "type": "object",
+      "description": "Baca data dari file CSV lokal",
+      "required": ["type", "filePath", "delimiter", "hasHeader"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "csv"
+        },
+        "filePath": {
+          "type": "string",
+          "description": "Path ke file CSV (relatif atau absolut)"
+        },
+        "delimiter": {
+          "type": "string",
+          "description": "Delimiter kolom CSV",
+          "enum": [",", ";", "\t", "|"],
+          "default": ","
+        },
+        "hasHeader": {
+          "type": "boolean",
+          "description": "Apakah baris pertama adalah header kolom",
+          "default": true
+        }
+      }
+    },
+
+    "ApiSource": {
+      "type": "object",
+      "description": "Fetch data dari satu atau lebih REST API endpoint",
+      "required": ["type", "pagination", "requests", "mergeKey", "delayMs"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "api"
+        },
+        "pagination": {
+          "$ref": "#/$defs/PaginationConfig"
+        },
+        "requests": {
+          "type": "array",
+          "description": "Daftar API request yang akan di-fetch per iterasi",
+          "items": {
+            "$ref": "#/$defs/ApiRequest"
+          },
+          "minItems": 1
+        },
+        "mergeKey": {
+          "type": "string",
+          "description": "Key untuk menggabungkan hasil dari multiple request"
+        },
+        "delayMs": {
+          "type": "integer",
+          "description": "Delay antar request dalam milidetik (rate limiting)",
+          "minimum": 0,
+          "default": 200
+        }
+      }
+    },
+
+    "ApiRequest": {
+      "type": "object",
+      "description": "Satu API endpoint untuk di-fetch",
+      "required": ["id", "url"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "ID unik request — dipakai sebagai key di merged result, misal \"equran\""
+        },
+        "url": {
+          "type": "string",
+          "description": "URL endpoint. Gunakan {param} untuk placeholder pagination, misal \"https://api.com/items/{id}\"",
+          "format": "uri-template"
+        },
+        "resultPath": {
+          "type": "string",
+          "description": "Dot-path ke data di response JSON, misal \"data.items\""
+        },
+        "headers": {
+          "type": "object",
+          "description": "HTTP headers tambahan, misal Authorization",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+
+    "PaginationConfig": {
+      "description": "Konfigurasi pagination untuk API source",
+      "oneOf": [
+        { "$ref": "#/$defs/RangePagination" },
+        { "$ref": "#/$defs/CursorPagination" },
+        { "$ref": "#/$defs/NoPagination" }
+      ]
+    },
+
+    "RangePagination": {
+      "type": "object",
+      "description": "Loop dari angka 'from' sampai 'to' — cocok untuk API dengan ID/page number",
+      "required": ["type", "param", "from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "range"
+        },
+        "param": {
+          "type": "string",
+          "description": "Nama parameter yang di-replace di URL, misal \"id\" untuk {id}"
+        },
+        "from": {
+          "type": "integer",
+          "description": "Nilai awal (inklusif)"
+        },
+        "to": {
+          "type": "integer",
+          "description": "Nilai akhir (inklusif)"
+        }
+      }
+    },
+
+    "CursorPagination": {
+      "type": "object",
+      "description": "Pagination berbasis cursor — loop sampai cursor null",
+      "required": ["type", "param", "nextPath"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "cursor"
+        },
+        "param": {
+          "type": "string",
+          "description": "Nama query parameter untuk cursor, misal \"cursor\" atau \"after\""
+        },
+        "nextPath": {
+          "type": "string",
+          "description": "Dot-path ke next cursor di response JSON, misal \"meta.next_cursor\""
+        }
+      }
+    },
+
+    "NoPagination": {
+      "type": "object",
+      "description": "Tanpa pagination — single request",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "none"
+        }
+      }
+    },
+
+    "TargetConfig": {
+      "description": "Konfigurasi target database",
+      "oneOf": [
+        { "$ref": "#/$defs/PostgresTarget" },
+        { "$ref": "#/$defs/SqliteTarget" }
+      ]
+    },
+
+    "PostgresTarget": {
+      "type": "object",
+      "description": "Tulis ke database PostgreSQL",
+      "required": ["type", "connectionString", "table"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "postgres"
+        },
+        "connectionString": {
+          "type": "string",
+          "description": "PostgreSQL connection string",
+          "examples": ["postgresql://user:pass@localhost:5432/mydb"]
+        },
+        "table": {
+          "type": "string",
+          "description": "Nama tabel target"
+        }
+      }
+    },
+
+    "SqliteTarget": {
+      "type": "object",
+      "description": "Tulis ke database SQLite",
+      "required": ["type", "filePath", "table"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "sqlite"
+        },
+        "filePath": {
+          "type": "string",
+          "description": "Path ke file SQLite database",
+          "examples": ["./local.db"]
+        },
+        "table": {
+          "type": "string",
+          "description": "Nama tabel target"
+        }
+      }
+    },
+
+    "OperationConfig": {
+      "type": "object",
+      "description": "Mode operasi tulis ke database",
+      "required": ["mode"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["insert", "upsert", "update"],
+          "description": "insert = INSERT biasa | upsert = INSERT ON CONFLICT UPDATE | update = UPDATE WHERE"
+        },
+        "conflictOn": {
+          "type": "array",
+          "description": "Kolom untuk ON CONFLICT (wajib untuk mode upsert)",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "updateWhere": {
+          "type": "array",
+          "description": "Kolom WHERE untuk UPDATE (wajib untuk mode update)",
+          "items": {
+            "$ref": "#/$defs/UpdateWhereClause"
+          },
+          "minItems": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "const": "upsert" } }
+          },
+          "then": {
+            "required": ["conflictOn"]
+          }
+        },
+        {
+          "if": {
+            "properties": { "mode": { "const": "update" } }
+          },
+          "then": {
+            "required": ["updateWhere"]
+          }
+        }
+      ]
+    },
+
+    "UpdateWhereClause": {
+      "type": "object",
+      "description": "Mapping kolom WHERE untuk mode update",
+      "required": ["column", "fromField"],
+      "additionalProperties": false,
+      "properties": {
+        "column": {
+          "type": "string",
+          "description": "Nama kolom di tabel target untuk WHERE clause"
+        },
+        "fromField": {
+          "type": "string",
+          "description": "Nama field dari source yang di-match ke kolom"
+        }
+      }
+    },
+
+    "TransformKey": {
+      "type": "string",
+      "enum": [
+        "toInt",
+        "toFloat",
+        "toString",
+        "toISODate",
+        "toLower",
+        "toUpper",
+        "trim",
+        "nullIfEmpty"
+      ],
+      "description": "toInt = parse integer | toFloat = parse float | toString = konversi ke string | toISODate = parse ke ISO 8601 | toLower = lowercase | toUpper = uppercase | trim = hapus whitespace | nullIfEmpty = null kalau kosong"
+    },
+
+    "MappingRule": {
+      "type": "object",
+      "description": "Aturan mapping satu field dari source ke kolom target",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Dot-path ke field di source, misal \"equran.namaLatin\" atau \"SKU\""
+        },
+        "to": {
+          "type": "string",
+          "description": "Nama kolom di tabel target database"
+        },
+        "transform": {
+          "$ref": "#/$defs/TransformKey"
+        },
+        "default": {
+          "description": "Nilai default kalau source field null/undefined"
+        },
+        "expand": {
+          "type": "boolean",
+          "description": "Jika true, field ini adalah array yang di-expand jadi multiple rows",
+          "default": false
+        },
+        "mapping": {
+          "type": "array",
+          "description": "Child mapping rules (wajib jika expand: true)",
+          "items": {
+            "$ref": "#/$defs/MappingRule"
+          }
+        }
+      },
+      "if": {
+        "properties": { "expand": { "const": true } }
+      },
+      "then": {
+        "required": ["from", "to", "mapping"]
+      }
+    }
+  }
+}

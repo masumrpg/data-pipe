@@ -1,0 +1,29 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "___NAMA_PIPELINE___",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "___PATH/KE/FILE.json___",
+    "resultPath": "___DOT.PATH.KE.ARRAY___"
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://___USER___:___PASS___@___HOST___:5432/___DB___",
+    "table": "___NAMA_TABEL___"
+  },
+
+  "operation": {
+    "mode": "___insert_ATAU_upsert_ATAU_update___",
+    "conflictOn": ["___KOLOM_UNIK___"],
+    "updateWhere": [{ "column": "___KOLOM_WHERE___", "fromField": "___FIELD_SOURCE___" }]
+  },
+
+  "mapping": [
+    { "from": "___fieldSource___", "to": "___kolom_db___" },
+    { "from": "___fieldSource___", "to": "___kolom_db___", "transform": "___toInt|toFloat|toString|toISODate|toLower|toUpper|trim|nullIfEmpty___" },
+    { "from": "___fieldSource___", "to": "___kolom_db___", "default": "___nilai_default___" }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → SQLite (UPDATE)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/status-updates.json"
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "./local.db",
+    "table": "orders"
+  },
+
+  "operation": {
+    "mode": "update",
+    "updateWhere": [{ "column": "order_id", "fromField": "id" }]
+  },
+
+  "mapping": [
+    { "from": "id",         "to": "order_id" },
+    { "from": "status",     "to": "status",       "transform": "toLower" },
+    { "from": "updated",    "to": "updated_at",   "transform": "toISODate" }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "./../pipeline.schema.json",
+  "name": "JSON → PostgreSQL (INSERT)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "./data/users.json",
+    "resultPath": "data.users"
+  },
+
+  "target": {
+    "type": "postgres",
+    "connectionString": "postgresql://user:pass@localhost:5432/mydb",
+    "table": "users"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "id",    "to": "external_id" },
+    { "from": "name",  "to": "full_name",   "transform": "trim" },
+    { "from": "email", "to": "email",       "transform": "toLower" },
+    { "from": "role",  "to": "role",        "default": "user" }
+  ]
+}
