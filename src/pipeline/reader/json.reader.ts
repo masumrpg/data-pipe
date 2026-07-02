@@ -58,13 +58,18 @@ export class JsonReader implements Reader {
         );
       }
       if (!Array.isArray(extracted)) {
-        throw parseError(
-          filePath,
-          'JSON',
-          new Error(`resultPath "${this.config.resultPath}" bukan array (tipe: ${typeof extracted}). Data harus berupa array.`),
-        );
+        if (extracted !== null && typeof extracted === 'object') {
+          data = Object.values(extracted);
+        } else {
+          throw parseError(
+            filePath,
+            'JSON',
+            new Error(`resultPath "${this.config.resultPath}" bukan array atau object (tipe: ${typeof extracted}).`),
+          );
+        }
+      } else {
+        data = extracted;
       }
-      data = extracted;
     } else if (Array.isArray(parsed)) {
       data = parsed;
     } else {
