@@ -248,6 +248,11 @@
         "table": {
           "type": "string",
           "description": "Target database table name"
+        },
+        "schema": {
+          "type": "string",
+          "description": "Target database schema name (defaults to 'public')",
+          "default": "public"
         }
       }
     },
@@ -324,7 +329,7 @@
     "UpdateWhereClause": {
       "type": "object",
       "description": "Column matching configuration for update operations",
-      "required": ["column", "fromField"],
+      "required": ["column"],
       "additionalProperties": false,
       "properties": {
         "column": {

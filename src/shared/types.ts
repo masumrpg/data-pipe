@@ -22,13 +22,13 @@ export type PaginationConfig =
   | { type: 'none' };
 
 export type TargetConfig =
-  | { type: 'postgres'; connectionString: string; table: string }
+  | { type: 'postgres'; connectionString: string; table: string; schema?: string }
   | { type: 'sqlite'; filePath: string; table: string };
 
 export type OperationConfig = {
   mode: 'insert' | 'upsert' | 'update';
   conflictOn?: string[];                                    // untuk upsert
-  updateWhere?: { column: string; fromField: string }[];   // untuk update
+  updateWhere?: { column: string; fromField?: string }[];   // untuk update
 };
 
 export type MappingRule = {

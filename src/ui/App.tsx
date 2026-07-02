@@ -129,6 +129,7 @@ export function App({ config, dryRun }: Props) {
           {config.target.type === 'postgres' && pgInfo ? (
             <>
               <Text dimColor>• Host: {pgInfo.host}:{pgInfo.port} (DB: {pgInfo.database})</Text>
+              {config.target.schema && <Text dimColor>• Schema: {config.target.schema}</Text>}
               {config.target.table && <Text dimColor>• Entry Table/View: {config.target.table}</Text>}
               {writeTables.length > 0 && (
                 <Text dimColor>• Write Tables: {writeTables.join(', ')}</Text>

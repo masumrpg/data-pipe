@@ -7,6 +7,7 @@ type PostgresTargetConfig = {
   type: 'postgres';
   connectionString: string;
   table: string;
+  schema?: string;
 };
 
 interface ForeignKey {
@@ -27,12 +28,16 @@ export class PostgresWriter implements Writer {
   private primaryKeys: PrimaryKey[] = [];
   private tableColumns: Record<string, string[]> = {};
 
-  constructor(config: PostgresTargetConfig) {
+  constructor(private config: PostgresTargetConfig) {
     this.client = new Client({ connectionString: config.connectionString });
   }
 
   async connect(): Promise<void> {
     await this.client.connect();
+    const schema = this.config.schema || 'public';
+    if (schema !== 'public') {
+      await this.client.query(`SET search_path TO "${schema}", public`);
+    }
     await this.loadSchemaMetadata();
   }
 
@@ -41,6 +46,7 @@ export class PostgresWriter implements Writer {
   }
 
   private async loadSchemaMetadata(): Promise<void> {
+    const schema = this.config.schema || 'public';
     try {
       // 1. Load Foreign Keys
       const fkRes = await this.client.query(`
@@ -56,8 +62,8 @@ export class PostgresWriter implements Writer {
               AND tc.table_schema = kcu.table_schema
             JOIN information_schema.constraint_column_usage AS ccu
               ON ccu.constraint_name = tc.constraint_name
-        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public';
-      `);
+        WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = $1;
+      `, [schema]);
       this.foreignKeys = fkRes.rows.map(r => ({
         table: r.table,
         column: r.column,
@@ -72,8 +78,8 @@ export class PostgresWriter implements Writer {
         JOIN information_schema.key_column_usage kcu
           ON tc.constraint_name = kcu.constraint_name
           AND tc.table_schema = kcu.table_schema
-        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = 'public';
-      `);
+        WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = $1;
+      `, [schema]);
       this.primaryKeys = pkRes.rows.map(r => ({
         table: r.table,
         column: r.column,
@@ -83,8 +89,8 @@ export class PostgresWriter implements Writer {
       const colRes = await this.client.query(`
         SELECT table_name AS table, column_name AS column
         FROM information_schema.columns
-        WHERE table_schema = 'public';
-      `);
+        WHERE table_schema = $1;
+      `, [schema]);
       this.tableColumns = {};
       for (const row of colRes.rows) {
         if (!this.tableColumns[row.table]) {

@@ -247,6 +247,9 @@ function validateTarget(target: Record<string, unknown>) {
         'Example: "postgresql://user:pass@localhost:5432/mydb"',
       );
     }
+    if (target['schema'] !== undefined && typeof target['schema'] !== 'string') {
+      throw configError('target.schema must be a string.');
+    }
   }
 
   if (target['type'] === 'sqlite') {
