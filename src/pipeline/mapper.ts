@@ -37,11 +37,11 @@ function getByPath(obj: unknown, path: string): unknown {
   for (const part of parts) {
     if (current == null) return undefined;
 
-    // Handle array index reference like "addresses[addressId]"
     const bracketMatch = part.match(/^(\w+)\[(\w+)\]$/);
     if (bracketMatch) {
-      const [, arrayKey, indexKey] = bracketMatch;
+      const [, arrayKey] = bracketMatch;
       const arr = (current as Record<string, unknown>)[arrayKey!];
+
       if (Array.isArray(arr)) {
         // indexKey is a field name referencing the current context's value
         // This is handled at a higher level during mapping

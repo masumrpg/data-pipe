@@ -81,11 +81,11 @@ export class ApiReader implements Reader {
     }
 
     if (pagination.type === 'cursor') {
-      return this.fetchCursor(pagination, requests, mergeKey, delayMs, onProgress);
+      return this.fetchCursor(pagination, requests, delayMs, onProgress);
     }
 
     // type === 'none'
-    return this.fetchSingle(requests, mergeKey, onProgress);
+    return this.fetchSingle(requests, onProgress);
   }
 
   private async fetchRange(
@@ -125,7 +125,6 @@ export class ApiReader implements Reader {
   private async fetchCursor(
     pagination: Extract<PaginationConfig, { type: 'cursor' }>,
     requests: ApiRequest[],
-    mergeKey: string,
     delayMs: number,
     onProgress: (fetched: number, total: number, current?: string | number) => void,
   ): Promise<unknown[]> {
@@ -176,7 +175,6 @@ export class ApiReader implements Reader {
 
   private async fetchSingle(
     requests: ApiRequest[],
-    mergeKey: string,
     onProgress: (fetched: number, total: number, current?: string | number) => void,
   ): Promise<unknown[]> {
     const merged: Record<string, unknown> = {};

@@ -1,9 +1,8 @@
-import React from 'react';
 import { Box, Text } from 'ink';
 
-type Props = { done: number; failed: number; onRetry?: () => void };
+type Props = { done: number; failed: number };
 
-export function ResultSummary({ done, failed, onRetry }: Props) {
+export function ResultSummary({ done, failed }: Props) {
   return (
     <Box flexDirection="column" marginTop={1}>
       <Text>

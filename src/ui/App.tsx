@@ -1,4 +1,3 @@
-import React from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { usePipeline } from './hooks/usePipeline';
 import { ProgressBar } from './components/ProgressBar';
@@ -78,7 +77,6 @@ export function App({ config, dryRun }: Props) {
     if ((input === 'q' || key.escape) && (status === 'done' || status === 'error')) exit();
   });
 
-  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
   // Find the last error log to show as a summary if status is error
   const lastErrorLog = status === 'error' 
@@ -202,7 +200,7 @@ export function App({ config, dryRun }: Props) {
 
       {/* Result */}
       {status === 'done' && (
-        <ResultSummary done={done} failed={failed.length} onRetry={retry} />
+        <ResultSummary done={done} failed={failed.length} />
       )}
 
       {/* Controls hint */}

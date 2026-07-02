@@ -1,4 +1,3 @@
-import React from 'react';
 import { render } from 'ink';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, extname } from 'path';
@@ -6,13 +5,13 @@ import * as yaml from 'js-yaml';
 import { App } from './ui/App';
 import type { PipelineConfig } from './shared/types';
 import {
-  DataPipeError,
   configError,
   fileError,
   parseError,
   validateConfig,
   formatErrorForTerminal,
 } from './shared/errors';
+
 
 function parseArgs() {
   const args = process.argv.slice(2);
