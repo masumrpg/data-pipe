@@ -106,9 +106,19 @@ export class PostgresWriter implements Writer {
         for (const col of columns) {
           for (const parentTable of tablesList) {
             if (parentTable === childTable) continue;
-            const singularParent = parentTable.endsWith('s') ? parentTable.slice(0, -1) : parentTable;
-            if (col.startsWith(`${singularParent}_`)) {
-              const parentCol = col.substring(singularParent.length + 1);
+            const baseParentTable = parentTable.replace(/^[a-zA-Z]+_/, '');
+            const singularParent = baseParentTable.endsWith('s') ? baseParentTable.slice(0, -1) : baseParentTable;
+            
+            // Handle common synonyms, e.g. "ayat" table matching "verse_id" foreign key columns
+            const synonyms: Record<string, string[]> = {
+              ayat: ['verse'],
+              verse: ['ayat'],
+            };
+            const parentNames = [singularParent, ...(synonyms[singularParent] || [])];
+            const matchedParentName = parentNames.find(name => col.startsWith(`${name}_`));
+
+            if (matchedParentName) {
+              const parentCol = col.substring(matchedParentName.length + 1);
               const parentCols = this.tableColumns[parentTable] || [];
               if (parentCols.includes(parentCol)) {
                 const exists = this.foreignKeys.some(

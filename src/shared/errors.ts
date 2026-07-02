@@ -351,7 +351,10 @@ function extractDbErrorMessage(err?: Error): string {
     return match ? `Column "${match[1]}" not found in table` : 'Column not found';
   }
   if (msg.includes('duplicate key')) return 'Duplicate key error (constraint violation)';
-  if (msg.includes('not-null constraint')) return 'Required NOT NULL field is empty';
+  if (msg.includes('not-null constraint')) {
+    const match = msg.match(/null value in column "(.+?)"/);
+    return match ? `Required NOT NULL field "${match[1]}" is empty` : 'Required NOT NULL field is empty';
+  }
   if (msg.includes('violates check constraint')) return 'Data violates check constraint';
 
   // SQLite specific errors
