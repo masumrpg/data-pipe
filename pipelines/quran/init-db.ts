@@ -35,9 +35,19 @@ async function init() {
   const clientDb = new Client({ ...pgConfigBase, database: 'quran_pipe_data' });
   await clientDb.connect();
 
+  console.log('Dropping existing tables to refresh constraints...');
+  await clientDb.query(`
+    DROP TABLE IF EXISTS tafsir CASCADE;
+    DROP TABLE IF EXISTS ayat_audio CASCADE;
+    DROP TABLE IF EXISTS ayats CASCADE;
+    DROP TABLE IF EXISTS surahs CASCADE;
+    DROP TABLE IF EXISTS reciters CASCADE;
+  `);
+
   console.log('Creating tables...');
 
   // 1. Reciters Table
+
   await clientDb.query(`
     CREATE TABLE IF NOT EXISTS reciters (
         id SERIAL PRIMARY KEY,
@@ -166,21 +176,14 @@ async function init() {
     DECLARE
         v_ayat_id INT;
     BEGIN
-        -- 1. Insert/upsert surahs (linkages handled dynamically)
+        -- 1. Insert surahs (use DO NOTHING to handle flat row duplicates of the same surah in a single run)
         INSERT INTO surahs (
             nomor, nama, nama_latin, jumlah_ayat, tempat_turun, arti, deskripsi, audio_full
         ) VALUES (
             NEW."surahs.nomor", NEW."surahs.nama", NEW."surahs.nama_latin", NEW."surahs.jumlah_ayat", 
             NEW."surahs.tempat_turun", NEW."surahs.arti", NEW."surahs.deskripsi", NEW."surahs.audio_full"
         )
-        ON CONFLICT (nomor) DO UPDATE SET
-            nama = EXCLUDED.nama,
-            nama_latin = EXCLUDED.nama_latin,
-            jumlah_ayat = EXCLUDED.jumlah_ayat,
-            tempat_turun = EXCLUDED.tempat_turun,
-            arti = EXCLUDED.arti,
-            deskripsi = EXCLUDED.deskripsi,
-            audio_full = EXCLUDED.audio_full;
+        ON CONFLICT (nomor) DO NOTHING;
 
         -- Self-heal next/prev surah foreign keys
         IF EXISTS(SELECT 1 FROM surahs WHERE nomor = NEW."surahs.nomor" - 1) THEN
@@ -192,52 +195,41 @@ async function init() {
             UPDATE surahs SET surat_selanjutnya_nomor = NEW."surahs.nomor" + 1 WHERE nomor = NEW."surahs.nomor";
         END IF;
 
-        -- 2. Insert/upsert ayats
+        -- 2. Insert ayats (No ON CONFLICT: raise duplicate key exception on conflict)
         INSERT INTO ayats (surah_nomor, nomor_ayat, teks_arab, teks_latin, teks_indonesia)
         VALUES (NEW."surahs.nomor", NEW."ayats.nomor_ayat", NEW."ayats.teks_arab", NEW."ayats.teks_latin", NEW."ayats.teks_indonesia")
-        ON CONFLICT (surah_nomor, nomor_ayat) DO UPDATE SET
-            teks_arab = EXCLUDED.teks_arab,
-            teks_latin = EXCLUDED.teks_latin,
-            teks_indonesia = EXCLUDED.teks_indonesia
         RETURNING id INTO v_ayat_id;
 
-        -- 3. Insert audio for each reciter code
+        -- 3. Insert audio for each reciter code (No ON CONFLICT: raise exception on duplicate audio)
         IF NEW."ayat_audio.audio_01" IS NOT NULL AND NEW."ayat_audio.audio_01" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '01', NEW."ayat_audio.audio_01")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '01', NEW."ayat_audio.audio_01");
         END IF;
         IF NEW."ayat_audio.audio_02" IS NOT NULL AND NEW."ayat_audio.audio_02" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '02', NEW."ayat_audio.audio_02")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '02', NEW."ayat_audio.audio_02");
         END IF;
         IF NEW."ayat_audio.audio_03" IS NOT NULL AND NEW."ayat_audio.audio_03" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '03', NEW."ayat_audio.audio_03")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '03', NEW."ayat_audio.audio_03");
         END IF;
         IF NEW."ayat_audio.audio_04" IS NOT NULL AND NEW."ayat_audio.audio_04" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '04', NEW."ayat_audio.audio_04")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '04', NEW."ayat_audio.audio_04");
         END IF;
         IF NEW."ayat_audio.audio_05" IS NOT NULL AND NEW."ayat_audio.audio_05" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '05', NEW."ayat_audio.audio_05")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '05', NEW."ayat_audio.audio_05");
         END IF;
         IF NEW."ayat_audio.audio_06" IS NOT NULL AND NEW."ayat_audio.audio_06" <> '' THEN
             INSERT INTO ayat_audio (ayat_id, reciter_code, audio_url)
-            VALUES (v_ayat_id, '06', NEW."ayat_audio.audio_06")
-            ON CONFLICT (ayat_id, reciter_code) DO UPDATE SET audio_url = EXCLUDED.audio_url;
+            VALUES (v_ayat_id, '06', NEW."ayat_audio.audio_06");
         END IF;
 
-        -- 4. Insert/upsert tafsirs
+        -- 4. Insert tafsirs (No ON CONFLICT: raise exception on duplicate tafsir)
         IF NEW."tafsir.teks" IS NOT NULL AND NEW."tafsir.teks" <> '' THEN
             INSERT INTO tafsir (ayat_id, ayat_nomor, teks)
-            VALUES (v_ayat_id, NEW."ayats.nomor_ayat", NEW."tafsir.teks")
-            ON CONFLICT (ayat_id) DO UPDATE SET teks = EXCLUDED.teks;
+            VALUES (v_ayat_id, NEW."ayats.nomor_ayat", NEW."tafsir.teks");
         END IF;
 
         RETURN NEW;

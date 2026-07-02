@@ -52,15 +52,54 @@ export function connectionError(type: string, cause?: Error): DataPipeError {
   );
 }
 
+function getWriteErrorHint(cause?: Error): string {
+  if (!cause) return 'Verify the database connection state, table structure, and data mapping definitions.';
+  const msg = cause.message;
+
+  if (msg.includes('no unique or exclusion constraint matching the ON CONFLICT specification')) {
+    return 'Ensure the target table has a UNIQUE constraint or PRIMARY KEY on the conflict target columns.';
+  }
+  if (msg.includes('duplicate key') || msg.includes('SQLITE_CONSTRAINT_UNIQUE')) {
+    return 'A duplicate record already exists. Check the unique constraints or use "upsert" mode instead.';
+  }
+  if (msg.includes('not-null constraint') || msg.includes('NOT NULL constraint failed')) {
+    return 'A required database column is missing value. Verify mapping values or ensure fields are not null.';
+  }
+  if (msg.includes('violates foreign key constraint') || msg.includes('FOREIGN KEY constraint failed')) {
+    return 'The record references an ID that does not exist in the parent table. Verify insert order/dependencies.';
+  }
+  if (msg.includes('relation') && msg.includes('does not exist')) {
+    return 'The target table does not exist in the database. Ensure init-db script has been run.';
+  }
+  if (msg.includes('no such table')) {
+    return 'The target table does not exist in the database. Ensure init-db script has been run.';
+  }
+  if (msg.includes('column') && msg.includes('does not exist')) {
+    return 'The table schema does not match your mappings. Check for misspelled column names.';
+  }
+  if (msg.includes('no such column')) {
+    return 'The table schema does not match your mappings. Check for misspelled column names.';
+  }
+  if (msg.includes('violates check constraint') || msg.includes('CHECK constraint failed')) {
+    return 'The data values do not satisfy check constraints (e.g. range or format checks) on the table.';
+  }
+  if (msg.includes('invalid input syntax') || msg.includes('datatype mismatch') || msg.includes('invalid type')) {
+    return 'The data type of source value is incompatible with the target column type. Try using transform helpers.';
+  }
+
+  return 'Verify the table name, columns, and compatibility of data types.';
+}
+
 export function writeError(table: string, cause?: Error): DataPipeError {
   const detail = extractDbErrorMessage(cause);
   return new DataPipeError(
     'WRITE_ERROR',
     `Failed to write to table "${table}": ${detail}`,
-    'Verify the table name, columns, and compatibility of data types.',
+    getWriteErrorHint(cause),
     cause,
   );
 }
+
 
 export function fetchError(url: string, status?: number, cause?: Error): DataPipeError {
   const msg = status
