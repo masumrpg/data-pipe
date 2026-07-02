@@ -11,8 +11,9 @@
 
   "target": {
     "type": "postgres",
-    "connectionString": "postgresql://ma-sum@localhost:5432/quran_pipe_data",
-    "table": "ayats"
+    "connectionString": "postgresql://ma-sum@localhost:5432/alquran",
+    "schema": "quran",
+    "table": "m_ayat"
   },
 
   "operation": {
