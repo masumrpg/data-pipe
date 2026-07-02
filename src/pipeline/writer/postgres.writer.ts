@@ -92,6 +92,35 @@ export class PostgresWriter implements Writer {
         }
         this.tableColumns[row.table]?.push(row.column);
       }
+
+      // 5. Infer relationships dynamically based on common naming conventions
+      const tablesList = Object.keys(this.tableColumns);
+      for (const childTable of tablesList) {
+        const columns = this.tableColumns[childTable] || [];
+        for (const col of columns) {
+          for (const parentTable of tablesList) {
+            if (parentTable === childTable) continue;
+            const singularParent = parentTable.endsWith('s') ? parentTable.slice(0, -1) : parentTable;
+            if (col.startsWith(`${singularParent}_`)) {
+              const parentCol = col.substring(singularParent.length + 1);
+              const parentCols = this.tableColumns[parentTable] || [];
+              if (parentCols.includes(parentCol)) {
+                const exists = this.foreignKeys.some(
+                  fk => fk.table === childTable && fk.column === col && fk.parentTable === parentTable && fk.parentColumn === parentCol
+                );
+                if (!exists) {
+                  this.foreignKeys.push({
+                    table: childTable,
+                    column: col,
+                    parentTable: parentTable,
+                    parentColumn: parentCol,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
     } catch (err: any) {
       // Quietly ignore if schema load fails (limited permissions)
     }
@@ -163,6 +192,9 @@ export class PostgresWriter implements Writer {
       }
     }
 
+    // Dynamic unpivoting registry: table -> prefix -> array of { suffix, value }
+    const unpivotCandidates: Record<string, Record<string, { suffix: string; value: unknown }[]>> = {};
+
     for (const key of Object.keys(row)) {
       if (!key.includes('.')) continue;
       const [table, column] = key.split('.') as [string, string];
@@ -176,24 +208,61 @@ export class PostgresWriter implements Writer {
         if (rows && rows[0]) {
           rows[0][column] = value;
         }
-      } 
-      // Special translations for Quran relational tables
-      else if (table === 'ayat_audio' && column.startsWith('audio_')) {
-        if (value && typeof value === 'string' && value.trim().length > 0) {
-          const code = column.replace('audio_', '');
-          const ayatAudioRows = tableRows['ayat_audio'];
-          if (ayatAudioRows) {
-            if (ayatAudioRows[0] && Object.keys(ayatAudioRows[0]).length === 0) {
-              tableRows['ayat_audio'] = [];
+      } else {
+        // Column does not exist in the database table schema.
+        // Check for generic unpivot pattern (e.g. prefix_suffix like audio_01)
+        const match = column.match(/^([a-zA-Z_]+)_([a-zA-Z0-9]+)$/);
+        if (match) {
+          const [, prefix, suffix] = match;
+          if (prefix && suffix) {
+            if (!unpivotCandidates[table]) {
+              unpivotCandidates[table] = {};
             }
-            tableRows['ayat_audio']?.push({ reciter_code: code, audio_url: value });
+            const tableCandidates = unpivotCandidates[table];
+            if (tableCandidates) {
+              if (!tableCandidates[prefix]) {
+                tableCandidates[prefix] = [];
+              }
+              tableCandidates[prefix]?.push({ suffix, value });
+            }
           }
         }
-      } else if (table === 'tafsir' && column === 'teks') {
-        const ayatNomor = row['ayats.nomor_ayat'];
-        const tafsirRows = tableRows['tafsir'];
-        if (tafsirRows) {
-          tafsirRows[0] = { teks: value, ayat_nomor: ayatNomor };
+      }
+    }
+
+    // Process unpivoting dynamically based on naming conventions in target schema
+    for (const table of Object.keys(unpivotCandidates)) {
+      const prefixes = unpivotCandidates[table] || {};
+      const existingCols = this.tableColumns[table] || [];
+
+      for (const prefix of Object.keys(prefixes)) {
+        const items = prefixes[prefix] || [];
+        
+        // Find if target table contains:
+        // 1. A key column: ends with _code, _key, _type, _id, or _name (e.g. "reciter_code")
+        // 2. A value column: starts with the prefix and ends with _url, _value, _text, or _path (e.g. "audio_url")
+        const keyCol = existingCols.find(
+          c => c.endsWith('_code') || c.endsWith('_key') || c.endsWith('_type') || c.endsWith('_id') || c.endsWith('_name')
+        );
+        const valCol = existingCols.find(
+          c => c.startsWith(prefix) && (c.endsWith('_url') || c.endsWith('_value') || c.endsWith('_text') || c.endsWith('_path'))
+        );
+
+        if (keyCol && valCol) {
+          const rows = tableRows[table];
+          // Remove default empty placeholder row if unpivoted rows are present
+          if (rows && rows[0] && Object.keys(rows[0]).length === 0) {
+            tableRows[table] = [];
+          }
+
+          for (const item of items) {
+            if (item.value !== null && item.value !== undefined && String(item.value).trim().length > 0) {
+              const newRow: Record<string, unknown> = {};
+              newRow[keyCol] = item.suffix;
+              newRow[valCol] = item.value;
+              tableRows[table]?.push(newRow);
+            }
+          }
         }
       }
     }
