@@ -231,6 +231,7 @@ export class PostgresWriter implements Writer {
     }
 
     // Process unpivoting dynamically based on naming conventions in target schema
+    const tables = Object.keys(tableRows);
     for (const table of Object.keys(unpivotCandidates)) {
       const prefixes = unpivotCandidates[table] || {};
       const existingCols = this.tableColumns[table] || [];
@@ -240,9 +241,10 @@ export class PostgresWriter implements Writer {
         
         // Find if target table contains:
         // 1. A key column: ends with _code, _key, _type, _id, or _name (e.g. "reciter_code")
-        // 2. A value column: starts with the prefix and ends with _url, _value, _text, or _path (e.g. "audio_url")
+        //    AND is not a foreign key pointing to another table in the current execution batch.
         const keyCol = existingCols.find(
-          c => c.endsWith('_code') || c.endsWith('_key') || c.endsWith('_type') || c.endsWith('_id') || c.endsWith('_name')
+          c => (c.endsWith('_code') || c.endsWith('_key') || c.endsWith('_type') || c.endsWith('_id') || c.endsWith('_name')) &&
+               !this.foreignKeys.some(fk => fk.table === table && fk.column === c && tables.includes(fk.parentTable))
         );
         const valCol = existingCols.find(
           c => c.startsWith(prefix) && (c.endsWith('_url') || c.endsWith('_value') || c.endsWith('_text') || c.endsWith('_path'))
