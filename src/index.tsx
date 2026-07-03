@@ -3,7 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve, extname } from 'path';
 import * as yaml from 'js-yaml';
 import { App } from './ui/App';
-import type { PipelineConfig } from './shared/types';
+import type { PipelineConfig, LogEntry } from './shared/types';
 import {
   configError,
   fileError,
@@ -26,6 +26,7 @@ function parseArgs() {
     testConn: args.includes('--test-connection'),
     retry: args.includes('--retry'),
     autoQuit: args.includes('--auto-quit') || args.includes('-q'),
+    raw: args.includes('--raw') || args.includes('--silent'),
     help: args.includes('--help') || args.includes('-h'),
   };
 }
@@ -105,7 +106,7 @@ function loadConfig(pipelinePath: string): PipelineConfig {
 }
 
 async function main() {
-  const { pipelinePath, dryRun, autoQuit, help } = parseArgs();
+  const { pipelinePath, dryRun, autoQuit, raw, help } = parseArgs();
 
   if (help) {
     printUsage();
@@ -123,6 +124,39 @@ async function main() {
   }
 
   const config = loadConfig(pipelinePath);
+
+  const isTTY = process.stdout.isTTY && !process.env['CI'];
+  const useRawLogging = raw || !isTTY;
+
+  if (useRawLogging) {
+    const { PipelineEngine } = await import('./pipeline/engine');
+    const engine = new PipelineEngine(config, dryRun);
+
+    console.log(`\x1b[1;36mDataPipe\x1b[0m — Running in raw logging mode`);
+    console.log(`----------------------------------------`);
+
+    engine.on('log', (entry: LogEntry) => {
+      const colors: Record<'info' | 'warn' | 'error', string> = { info: '\x1b[37m', warn: '\x1b[33m', error: '\x1b[31;1m' };
+      const prefix = entry.level === 'info' ? '' : `[${entry.level.toUpperCase()}] `;
+      console.log(`[${entry.ts.slice(11, 19)}] ${colors[entry.level] || ''}${prefix}${entry.msg}\x1b[0m`);
+    });
+
+    try {
+      await engine.run();
+      const state = engine.getState();
+      if (state.failed.length > 0) {
+        console.error(`\x1b[31;1m✗ Completed with ${state.failed.length} failures.\x1b[0m`);
+        process.exit(1);
+      } else {
+        console.log(`\x1b[32;1m✓ Completed successfully.\x1b[0m`);
+        process.exit(0);
+      }
+    } catch (err: any) {
+      console.error(`\x1b[31;1m🚨 Pipeline crashed: ${err.message || String(err)}\x1b[0m`);
+      process.exit(1);
+    }
+    return;
+  }
   
   let success = true;
   const { waitUntilExit } = render(

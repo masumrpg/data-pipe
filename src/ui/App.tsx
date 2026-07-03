@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { usePipeline } from './hooks/usePipeline';
 import { ProgressBar } from './components/ProgressBar';
@@ -66,11 +66,69 @@ export function App({ config, dryRun, autoQuit, onComplete }: Props) {
   const { exit } = useApp();
   const { status, done, total, failed, logs } = state;
 
+  const [metrics, setMetrics] = useState({
+    speed: 0,
+    eta: '',
+    elapsed: '00:00',
+    ram: '0.0 MB',
+  });
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (status === 'running' && !startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+
+    const interval = setInterval(() => {
+      let elapsedStr = '00:00';
+      let speed = 0;
+      let etaStr = '';
+
+      if (startTimeRef.current) {
+        const elapsedMs = Date.now() - startTimeRef.current;
+        const totalSecs = Math.floor(elapsedMs / 1000);
+        const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
+        const secs = (totalSecs % 60).toString().padStart(2, '0');
+        elapsedStr = `${mins}:${secs}`;
+
+        if (done > 0 && totalSecs > 0) {
+          speed = done / totalSecs;
+        }
+
+        if (speed > 0 && total > done) {
+          const remainingSecs = Math.ceil((total - done) / speed);
+          if (remainingSecs < 60) {
+            etaStr = `${remainingSecs}s`;
+          } else {
+            const remMins = Math.floor(remainingSecs / 60);
+            const remSecs = remainingSecs % 60;
+            etaStr = `${remMins}m ${remSecs}s`;
+          }
+        }
+      }
+
+      let ramStr = '0.0 MB';
+      if (typeof process !== 'undefined' && process.memoryUsage) {
+        const usage = process.memoryUsage().heapUsed;
+        ramStr = `${(usage / 1024 / 1024).toFixed(1)} MB`;
+      }
+
+      setMetrics({
+        speed,
+        eta: etaStr,
+        elapsed: elapsedStr,
+        ram: ramStr,
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [status, done, total]);
+
   useEffect(() => {
     if (status === 'done' || status === 'error') {
       const isSuccess = status === 'done' && failed.length === 0;
       if (onComplete) {
-        onComplete(isSuccess);
+        isSuccess ? onComplete(true) : onComplete(false);
       }
       if (autoQuit) {
         exit();
@@ -164,12 +222,20 @@ export function App({ config, dryRun, autoQuit, onComplete }: Props) {
 
       {/* Status + progress */}
       <Box flexDirection="column" gap={1}>
-        <StatusBadge status={status} />
+        <Box gap={2} alignItems="center">
+          <StatusBadge status={status} />
+          {(status === 'running' || status === 'paused' || status === 'done') && (
+            <Text dimColor>
+              ⏱️  {metrics.elapsed} | 🚀  {metrics.speed.toFixed(1)} items/s | 🧠  {metrics.ram}
+            </Text>
+          )}
+        </Box>
         {(status === 'running' || status === 'paused' || status === 'done') && (
           <ProgressBar
             done={done}
             total={total}
             hasFailed={failed.length > 0}
+            eta={metrics.eta}
           />
         )}
         {status === 'fetching' && state.fetchProgress && (
