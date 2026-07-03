@@ -43,7 +43,7 @@ bun install   # or npm install / pnpm install / yarn install
 ### 2. Global Installation (CLI Command)
 After publishing to the npm registry, install the CLI globally on any machine:
 ```bash
-npm install -g datapipe-cli   # or pnpm add -g / yarn global add / bun install -g
+npm install -g @masumdev/data-pipe   # or pnpm add -g / yarn global add / bun install -g
 ```
 
 ---
@@ -296,7 +296,7 @@ jobs:
       - uses: oven-sh/setup-bun@v1
       
       - name: Install DataPipe Globally
-        run: bun install -g datapipe-cli
+        run: bun install -g @masumdev/data-pipe
         
       - name: Run Pipeline
         run: datapipe -p pipelines/daily-sync.json --raw -q
