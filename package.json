@@ -1,6 +1,15 @@
 {
   "name": "@masumdev/data-pipe",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "author": "masumrpg",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/masumrpg/data-pipe.git"
+  },
+  "bugs": {
+    "url": "https://github.com/masumrpg/data-pipe/issues"
+  },
+  "homepage": "https://github.com/masumrpg/data-pipe#readme",
   "type": "module",
   "bin": {
     "datapipe": "dist/datapipe.js"
