@@ -25,6 +25,7 @@ function parseArgs() {
     dryRun: args.includes('--dry-run'),
     testConn: args.includes('--test-connection'),
     retry: args.includes('--retry'),
+    autoQuit: args.includes('--auto-quit') || args.includes('-q'),
     help: args.includes('--help') || args.includes('-h'),
   };
 }
@@ -41,6 +42,7 @@ function printUsage() {
     --dry-run               Fetch + map data without writing to target database
     --test-connection       Only test connection to the target database
     --retry                 Retry failed items from the previous pipeline run
+    --auto-quit, -q         Auto-quit the process when complete or on error
     --help, -h              Display this help menu
 
   \x1b[1mExamples:\x1b[0m
@@ -103,7 +105,7 @@ function loadConfig(pipelinePath: string): PipelineConfig {
 }
 
 async function main() {
-  const { pipelinePath, dryRun, help } = parseArgs();
+  const { pipelinePath, dryRun, autoQuit, help } = parseArgs();
 
   if (help) {
     printUsage();
@@ -121,7 +123,25 @@ async function main() {
   }
 
   const config = loadConfig(pipelinePath);
-  render(<App config={config} dryRun={dryRun} />);
+  
+  let success = true;
+  const { waitUntilExit } = render(
+    <App
+      config={config}
+      dryRun={dryRun}
+      autoQuit={autoQuit}
+      onComplete={(isSuccess) => {
+        success = isSuccess;
+      }}
+    />
+  );
+  
+  await waitUntilExit();
+  if (!success) {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
 }
 
 main().catch((err) => {

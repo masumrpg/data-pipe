@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { usePipeline } from './hooks/usePipeline';
 import { ProgressBar } from './components/ProgressBar';
@@ -6,7 +7,12 @@ import { LogPanel } from './components/LogPanel';
 import { ResultSummary } from './components/ResultSummary';
 import type { PipelineConfig, MappingRule } from '../shared/types';
 
-type Props = { config: PipelineConfig; dryRun?: boolean };
+type Props = {
+  config: PipelineConfig;
+  dryRun?: boolean;
+  autoQuit?: boolean;
+  onComplete?: (success: boolean) => void;
+};
 
 function parseConnectionString(connStr: string) {
   try {
@@ -55,10 +61,22 @@ function getTargetTables(mapping: MappingRule[], defaultTable: string): string[]
   return Array.from(tables);
 }
 
-export function App({ config, dryRun }: Props) {
+export function App({ config, dryRun, autoQuit, onComplete }: Props) {
   const { state, pause, resume, cancel, retry } = usePipeline(config, dryRun);
   const { exit } = useApp();
   const { status, done, total, failed, logs } = state;
+
+  useEffect(() => {
+    if (status === 'done' || status === 'error') {
+      const isSuccess = status === 'done' && failed.length === 0;
+      if (onComplete) {
+        onComplete(isSuccess);
+      }
+      if (autoQuit) {
+        exit();
+      }
+    }
+  }, [status, failed.length, autoQuit, onComplete, exit]);
 
   // Connection parsing for postgres
   const pgInfo = config.target.type === 'postgres'

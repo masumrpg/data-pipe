@@ -79,4 +79,16 @@ export class JsonReader implements Reader {
     onProgress(data.length, data.length, 'file');
     return data;
   }
+
+  async stream(
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void> {
+    const data = await this.fetchAll(onProgress);
+    const chunkSize = 1000;
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      await onChunk(chunk);
+    }
+  }
 }

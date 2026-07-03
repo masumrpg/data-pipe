@@ -21,14 +21,27 @@ export type PaginationConfig =
   | { type: 'cursor'; param: string; nextPath: string }
   | { type: 'none' };
 
+export interface ExplicitRelation {
+  table: string;
+  column: string;
+  parentTable: string;
+  parentColumn: string;
+}
+
 export type TargetConfig =
-  | { type: 'postgres'; connectionString: string; table: string; schema?: string }
-  | { type: 'sqlite'; filePath: string; table: string };
+  | { type: 'postgres'; connectionString: string; table: string; schema?: string; relations?: ExplicitRelation[] }
+  | { type: 'sqlite'; filePath: string; table: string; relations?: ExplicitRelation[] };
 
 export type OperationConfig = {
   mode: 'insert' | 'upsert' | 'update';
   conflictOn?: string[];                                    // untuk upsert
   updateWhere?: { column: string; fromField?: string }[];   // untuk update
+};
+
+export type LookupConfig = {
+  table: string;
+  key: string;
+  returning: string;
 };
 
 export type MappingRule = {
@@ -38,6 +51,7 @@ export type MappingRule = {
   default?: unknown;         // nilai default kalau null/undefined
   expand?: boolean;          // expand array → multiple rows
   mapping?: MappingRule[];   // child mapping kalau expand: true
+  lookup?: LookupConfig;
 };
 
 export type TransformKey =
@@ -82,10 +96,14 @@ export type RunState = {
 // Reader & Writer interfaces
 export interface Reader {
   fetchAll(onProgress: (fetched: number, total: number, current?: string | number) => void): Promise<unknown[]>;
+  stream?(
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void>;
 }
 
 export interface Writer {
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  write(row: Record<string, unknown>, op: OperationConfig, table: string): Promise<void>;
+  write(row: Record<string, unknown>, op: OperationConfig, table: string, rules?: MappingRule[]): Promise<void>;
 }

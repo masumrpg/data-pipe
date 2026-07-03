@@ -257,6 +257,22 @@ function validateTarget(target: Record<string, unknown>) {
       throw configError('target.filePath is required for type "sqlite".', 'Example: "./local.db"');
     }
   }
+
+  if (target['relations'] !== undefined) {
+    if (!Array.isArray(target['relations'])) {
+      throw configError('target.relations must be an array.');
+    }
+    for (const rel of target['relations']) {
+      if (typeof rel !== 'object' || rel === null) {
+        throw configError('Each item in target.relations must be an object.');
+      }
+      const r = rel as Record<string, unknown>;
+      if (!r['table'] || typeof r['table'] !== 'string') throw configError('Each relation must have a "table" string property.');
+      if (!r['column'] || typeof r['column'] !== 'string') throw configError('Each relation must have a "column" string property.');
+      if (!r['parentTable'] || typeof r['parentTable'] !== 'string') throw configError('Each relation must have a "parentTable" string property.');
+      if (!r['parentColumn'] || typeof r['parentColumn'] !== 'string') throw configError('Each relation must have a "parentColumn" string property.');
+    }
+  }
 }
 
 function validateOperation(op: Record<string, unknown>) {
@@ -319,6 +335,16 @@ function validateMappingRule(rule: unknown, index: number) {
     for (const [ci, childRule] of (r['mapping'] as unknown[]).entries()) {
       validateMappingRule(childRule, ci);
     }
+  }
+
+  if (r['lookup'] !== undefined) {
+    if (typeof r['lookup'] !== 'object' || r['lookup'] === null) {
+      throw configError(`mapping[${index}].lookup must be an object.`);
+    }
+    const l = r['lookup'] as Record<string, unknown>;
+    if (!l['table'] || typeof l['table'] !== 'string') throw configError(`mapping[${index}].lookup.table is required (string).`);
+    if (!l['key'] || typeof l['key'] !== 'string') throw configError(`mapping[${index}].lookup.key is required (string).`);
+    if (!l['returning'] || typeof l['returning'] !== 'string') throw configError(`mapping[${index}].lookup.returning is required (string).`);
   }
 }
 

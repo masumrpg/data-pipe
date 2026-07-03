@@ -1,10 +1,10 @@
-import { Database } from 'bun:sqlite';
-import type { Writer, OperationConfig } from '../../shared/types';
+import type { Writer, OperationConfig, ExplicitRelation, MappingRule } from '../../shared/types';
 
 type SqliteTargetConfig = {
   type: 'sqlite';
   filePath: string;
   table: string;
+  relations?: ExplicitRelation[];
 };
 
 interface ForeignKey {
@@ -20,17 +20,25 @@ interface PrimaryKey {
 }
 
 export class SqliteWriter implements Writer {
-  private db: Database | null = null;
+  private db: any = null;
   private foreignKeys: ForeignKey[] = [];
   private primaryKeys: PrimaryKey[] = [];
   private tableColumns: Record<string, string[]> = {};
+  private lookupCache: Record<string, unknown> = {};
 
   constructor(private config: SqliteTargetConfig) {}
 
   async connect(): Promise<void> {
-    this.db = new Database(this.config.filePath);
-    this.db.run('PRAGMA journal_mode = WAL');
-    this.db.run('PRAGMA foreign_keys = ON');
+    const isBun = typeof (globalThis as any).Bun !== 'undefined';
+    if (isBun) {
+      const { Database } = await import('bun:sqlite');
+      this.db = new Database(this.config.filePath);
+    } else {
+      const BetterSqlite3 = (await import('better-sqlite3')).default;
+      this.db = new BetterSqlite3(this.config.filePath);
+    }
+    this.db.prepare('PRAGMA journal_mode = WAL').run();
+    this.db.prepare('PRAGMA foreign_keys = ON').run();
     await this.loadSchemaMetadata();
   }
 
@@ -135,6 +143,16 @@ export class SqliteWriter implements Writer {
                 }
               }
             }
+          }
+        }
+      }
+      if (this.config.relations) {
+        for (const rel of this.config.relations) {
+          const exists = this.foreignKeys.some(
+            fk => fk.table === rel.table && fk.column === rel.column && fk.parentTable === rel.parentTable && fk.parentColumn === rel.parentColumn
+          );
+          if (!exists) {
+            this.foreignKeys.push(rel);
           }
         }
       }
@@ -289,7 +307,7 @@ export class SqliteWriter implements Writer {
     return tableRows;
   }
 
-  private async writeRelational(row: Record<string, unknown>): Promise<void> {
+  private async writeRelational(row: Record<string, unknown>, rules?: MappingRule[]): Promise<void> {
     if (!this.db) throw new Error('Database not connected');
     
     const tableRows = this.normalizeRowData(row);
@@ -297,15 +315,20 @@ export class SqliteWriter implements Writer {
     const executionOrder = this.getExecutionOrder(tables);
     const generatedValues: Record<string, Record<string, unknown>[]> = {};
 
-    this.db.run('BEGIN TRANSACTION');
+    this.db.prepare('BEGIN').run();
 
     try {
       for (const table of executionOrder) {
         const rowsToInsert = tableRows[table];
         if (!rowsToInsert || rowsToInsert.length === 0) continue;
 
-        for (const r of rowsToInsert) {
+        for (let r of rowsToInsert) {
           if (Object.keys(r).length === 0) continue;
+
+          // Resolve lookups
+          if (rules) {
+            r = await this.resolveLookups(r, table, rules);
+          }
 
           // Resolve foreign keys
           for (const fk of this.foreignKeys) {
@@ -367,24 +390,82 @@ export class SqliteWriter implements Writer {
           }
         }
       }
-      this.db.run('COMMIT');
+      this.db.prepare('COMMIT').run();
     } catch (err) {
-      this.db.run('ROLLBACK');
+      this.db.prepare('ROLLBACK').run();
       throw err;
     }
   }
 
-  async write(row: Record<string, unknown>, op: OperationConfig, table: string): Promise<void> {
+  private async resolveLookups(
+    row: Record<string, unknown>,
+    table: string,
+    rules: MappingRule[]
+  ): Promise<Record<string, unknown>> {
+    const result = { ...row };
+    for (const col of Object.keys(result)) {
+      const val = result[col];
+      if (val == null) continue;
+
+      const rule = this.findLookupRule(col, table, rules);
+      if (rule && rule.lookup) {
+        const { table: lookupTable, key: lookupKey, returning } = rule.lookup;
+        result[col] = await this.executeLookup(lookupTable, lookupKey, returning, val);
+      }
+    }
+    return result;
+  }
+
+  private findLookupRule(col: string, table: string, rules: MappingRule[]): MappingRule | undefined {
+    for (const rule of rules) {
+      if (rule.lookup) {
+        if (rule.to === col || rule.to === `${table}.${col}`) {
+          return rule;
+        }
+      }
+      if (rule.mapping) {
+        const found = this.findLookupRule(col, table, rule.mapping);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+
+  private async executeLookup(
+    lookupTable: string,
+    lookupKey: string,
+    returning: string,
+    value: unknown
+  ): Promise<unknown> {
+    const cacheKey = `${lookupTable}:${lookupKey}:${returning}:${value}`;
+    if (this.lookupCache[cacheKey] !== undefined) {
+      return this.lookupCache[cacheKey];
+    }
+
+    const sql = `SELECT "${returning}" FROM "${lookupTable}" WHERE "${lookupKey}" = ?`;
+    const res = this.db!.prepare(sql).get(value as any) as Record<string, unknown> | undefined;
+    const resolvedValue = res ? res[returning] : null;
+
+    this.lookupCache[cacheKey] = resolvedValue;
+    return resolvedValue;
+  }
+
+  async write(row: Record<string, unknown>, op: OperationConfig, table: string, rules?: MappingRule[]): Promise<void> {
     if (!this.db) throw new Error('Database not connected');
 
-    const hasRelationalKeys = Object.keys(row).some(k => k.includes('.'));
+    let resolvedRow = row;
+    if (rules) {
+      resolvedRow = await this.resolveLookups(row, table, rules);
+    }
+
+    const hasRelationalKeys = Object.keys(resolvedRow).some(k => k.includes('.'));
     if (hasRelationalKeys) {
-      await this.writeRelational(row);
+      await this.writeRelational(resolvedRow, rules);
       return;
     }
 
-    const columns = Object.keys(row);
-    const values = Object.values(row);
+    const columns = Object.keys(resolvedRow);
+    const values = Object.values(resolvedRow);
     const placeholders = columns.map(() => '?');
 
     switch (op.mode) {

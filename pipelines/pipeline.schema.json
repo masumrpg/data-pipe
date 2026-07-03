@@ -231,6 +231,19 @@
       ]
     },
 
+    "ExplicitRelation": {
+      "type": "object",
+      "description": "Explicit relationship definition mapping child column to parent column",
+      "required": ["table", "column", "parentTable", "parentColumn"],
+      "additionalProperties": false,
+      "properties": {
+        "table": { "type": "string" },
+        "column": { "type": "string" },
+        "parentTable": { "type": "string" },
+        "parentColumn": { "type": "string" }
+      }
+    },
+
     "PostgresTarget": {
       "type": "object",
       "description": "Write data to a PostgreSQL database",
@@ -253,6 +266,13 @@
           "type": "string",
           "description": "Target database schema name (defaults to 'public')",
           "default": "public"
+        },
+        "relations": {
+          "type": "array",
+          "description": "Explicit overrides for parent-child relations",
+          "items": {
+            "$ref": "#/$defs/ExplicitRelation"
+          }
         }
       }
     },
@@ -274,6 +294,13 @@
         "table": {
           "type": "string",
           "description": "Target database table name"
+        },
+        "relations": {
+          "type": "array",
+          "description": "Explicit overrides for parent-child relations",
+          "items": {
+            "$ref": "#/$defs/ExplicitRelation"
+          }
         }
       }
     },
@@ -359,6 +386,18 @@
       "description": "toInt = parse as integer | toFloat = parse as float | toString = convert to string | toJsonString = stringify object to JSON string | toISODate = parse to ISO 8601 string | toLower = lowercase string | toUpper = uppercase string | trim = trim outer whitespace | nullIfEmpty = return null if field is empty or blank"
     },
 
+    "LookupConfig": {
+      "type": "object",
+      "description": "Lookup parent value from a database table dynamically",
+      "required": ["table", "key", "returning"],
+      "additionalProperties": false,
+      "properties": {
+        "table": { "type": "string" },
+        "key": { "type": "string" },
+        "returning": { "type": "string" }
+      }
+    },
+
     "MappingRule": {
       "type": "object",
       "description": "Rule defining mapping from a source field to a target table column",
@@ -390,6 +429,9 @@
           "items": {
             "$ref": "#/$defs/MappingRule"
           }
+        },
+        "lookup": {
+          "$ref": "#/$defs/LookupConfig"
         }
       },
       "if": {

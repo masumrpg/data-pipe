@@ -103,53 +103,11 @@ export class PipelineEngine extends EventEmitter {
         this.log('info', '🏷️  Dry run — skipping database connection');
       }
 
-      // ── Fetch data from source ──
-      this.setStatus('fetching');
-      this.log('info', `Fetching data from ${this.config.source.type}...`);
-
-      let items: unknown[];
-      try {
-        const reader = createReader(this.config.source);
-        items = await reader.fetchAll((fetched, total, current) => {
-          this.emit('fetch-progress', { fetched, total, current });
-        });
-      } catch (err: any) {
-        const dpErr = err instanceof DataPipeError ? err : this.wrapFetchError(err);
-        this.log('error', dpErr.message);
-        if (dpErr.hint) this.log('warn', `💡 ${dpErr.hint}`);
-        this.setStatus('error');
-        this.emit('error', dpErr);
-        // Cleanup writer if connected
-        if (writer) {
-          try { await writer.disconnect(); } catch {}
-        }
-        return;
-      }
-
-      if (items.length === 0) {
-        this.log('warn', 'No data found from the source.');
-        this.setStatus('done');
-        this.emit('done', this.state);
-        if (writer) {
-          try { await writer.disconnect(); } catch {}
-        }
-        return;
-      }
-
-      this.state.total = items.length;
-      this.emit('total', items.length);
-      this.log('info', `✓ Total items: ${items.length}`);
-
-      // ── Process items ──
-      this.setStatus('running');
-
-      for (let idx = 0; idx < items.length; idx++) {
-        const item = items[idx];
-
-        // Emit item processing event
+      // Helper function to process a single item
+      const processItem = async (item: unknown, idx: number, total: number) => {
         this.emit('item-processing', {
           index: idx + 1,
-          total: items.length,
+          total: total,
           label: getItemLabel(item),
         });
 
@@ -158,8 +116,8 @@ export class PipelineEngine extends EventEmitter {
           await new Promise((r) => setTimeout(r, 100));
         }
         if (this.cancelled) {
-          this.log('warn', `Pipeline cancelled at item ${idx + 1}/${items.length}`);
-          break;
+          this.log('warn', `Pipeline cancelled at item ${idx + 1}/${total}`);
+          return false;
         }
 
         try {
@@ -172,7 +130,7 @@ export class PipelineEngine extends EventEmitter {
           if (!this.dryRun && writer) {
             for (const row of rows) {
               try {
-                await writer.write(row, this.config.operation, this.config.target.table);
+                await writer.write(row, this.config.operation, this.config.target.table, this.config.mapping);
               } catch (err: any) {
                 const dpErr = err instanceof DataPipeError
                   ? err
@@ -183,10 +141,11 @@ export class PipelineEngine extends EventEmitter {
           }
 
           this.state.done++;
+          const currentTotal = this.state.total || total || 1;
           this.emit('progress', {
             done: this.state.done,
-            total: this.state.total,
-            percent: Math.round((this.state.done / this.state.total) * 100),
+            total: currentTotal,
+            percent: Math.round((this.state.done / currentTotal) * 100),
           });
         } catch (err: any) {
           const errMsg = err instanceof DataPipeError ? err.message : err.message ?? String(err);
@@ -197,6 +156,86 @@ export class PipelineEngine extends EventEmitter {
             this.log('warn', `💡 ${err.hint}`);
           }
           this.emit('item-failed', failed);
+        }
+        return true;
+      };
+
+      const reader = createReader(this.config.source);
+      let itemIndex = 0;
+
+      if (reader.stream) {
+        this.setStatus('fetching');
+        this.log('info', `Streaming data from ${this.config.source.type}...`);
+
+        try {
+          await reader.stream(
+            async (chunk) => {
+              if (this.state.status === 'fetching' || this.state.status === 'connecting') {
+                this.setStatus('running');
+              }
+              for (const item of chunk) {
+                const idx = itemIndex++;
+                const keepGoing = await processItem(item, idx, this.state.total || chunk.length);
+                if (!keepGoing) break;
+              }
+            },
+            (fetched, total, current) => {
+              this.state.total = total;
+              this.emit('total', total);
+              this.emit('fetch-progress', { fetched, total, current });
+            }
+          );
+        } catch (err: any) {
+          const dpErr = err instanceof DataPipeError ? err : this.wrapFetchError(err);
+          this.log('error', dpErr.message);
+          if (dpErr.hint) this.log('warn', `💡 ${dpErr.hint}`);
+          this.setStatus('error');
+          this.emit('error', dpErr);
+          if (writer) {
+            try { await writer.disconnect(); } catch {}
+          }
+          return;
+        }
+      } else {
+        this.setStatus('fetching');
+        this.log('info', `Fetching data from ${this.config.source.type}...`);
+
+        let items: unknown[];
+        try {
+          items = await reader.fetchAll((fetched, total, current) => {
+            this.emit('fetch-progress', { fetched, total, current });
+          });
+        } catch (err: any) {
+          const dpErr = err instanceof DataPipeError ? err : this.wrapFetchError(err);
+          this.log('error', dpErr.message);
+          if (dpErr.hint) this.log('warn', `💡 ${dpErr.hint}`);
+          this.setStatus('error');
+          this.emit('error', dpErr);
+          if (writer) {
+            try { await writer.disconnect(); } catch {}
+          }
+          return;
+        }
+
+        if (items.length === 0) {
+          this.log('warn', 'No data found from the source.');
+          this.setStatus('done');
+          this.emit('done', this.state);
+          if (writer) {
+            try { await writer.disconnect(); } catch {}
+          }
+          return;
+        }
+
+        this.state.total = items.length;
+        this.emit('total', items.length);
+        this.log('info', `✓ Total items: ${items.length}`);
+
+        this.setStatus('running');
+        for (const item of items) {
+          const idx = itemIndex++;
+          const keepGoing = await processItem(item, idx, items.length);
+          if (!keepGoing) break;
         }
       }
 
@@ -290,7 +329,7 @@ export class PipelineEngine extends EventEmitter {
       try {
         const rows = applyMapping(item, this.config.mapping);
         for (const row of rows) {
-          await writer.write(row, this.config.operation, this.config.target.table);
+          await writer.write(row, this.config.operation, this.config.target.table, this.config.mapping);
         }
         this.state.done++;
         this.log('info', '✓ Retry succeeded');

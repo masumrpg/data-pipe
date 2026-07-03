@@ -88,6 +88,128 @@ export class ApiReader implements Reader {
     return this.fetchSingle(requests, onProgress);
   }
 
+  async stream(
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void> {
+    const { pagination, requests, mergeKey, delayMs } = this.config;
+
+    if (pagination.type === 'range') {
+      await this.streamRange(pagination, requests, mergeKey, delayMs, onChunk, onProgress);
+      return;
+    }
+
+    if (pagination.type === 'cursor') {
+      await this.streamCursor(pagination, requests, delayMs, onChunk, onProgress);
+      return;
+    }
+
+    // type === 'none'
+    await this.streamSingle(requests, onChunk, onProgress);
+  }
+
+  private async streamRange(
+    pagination: Extract<PaginationConfig, { type: 'range' }>,
+    requests: ApiRequest[],
+    mergeKey: string,
+    delayMs: number,
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void> {
+    const total = pagination.to - pagination.from + 1;
+    let fetched = 0;
+
+    for (let i = pagination.from; i <= pagination.to; i++) {
+      const merged: Record<string, unknown> = {};
+
+      for (const req of requests) {
+        const url = req.url.replace(`{${pagination.param}}`, String(i));
+        const json = await safeFetch(url, req.headers);
+        const data = req.resultPath ? getByPath(json, req.resultPath) : json;
+        merged[req.id] = data;
+      }
+
+      merged[mergeKey] = i;
+      fetched++;
+      await onChunk([merged]);
+      onProgress(fetched, total, i);
+
+      if (delayMs > 0 && i < pagination.to) {
+        await delay(delayMs);
+      }
+    }
+  }
+
+  private async streamCursor(
+    pagination: Extract<PaginationConfig, { type: 'cursor' }>,
+    requests: ApiRequest[],
+    delayMs: number,
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void> {
+    let cursor: string | null = null;
+    let page = 0;
+    let totalItems = 0;
+    const maxPages = 10000;
+
+    do {
+      if (page >= maxPages) {
+        throw new DataPipeError(
+          'FETCH_ERROR',
+          `Cursor pagination exceeded limit of ${maxPages} pages.`,
+          'Potential infinite loop detected — verify nextPath in config.',
+        );
+      }
+
+      for (const req of requests) {
+        let url = req.url;
+        if (cursor) {
+          const separator = url.includes('?') ? '&' : '?';
+          url = `${url}${separator}${pagination.param}=${cursor}`;
+        }
+
+        const json = await safeFetch(url, req.headers);
+        const data = req.resultPath ? getByPath(json, req.resultPath) : json;
+
+        const chunk = Array.isArray(data) ? data : [data];
+        totalItems += chunk.length;
+        await onChunk(chunk);
+
+        cursor = getByPath(json, pagination.nextPath) as string | null;
+      }
+
+      page++;
+      onProgress(totalItems, totalItems, cursor ?? 'last');
+
+      if (delayMs > 0 && cursor) {
+        await delay(delayMs);
+      }
+    } while (cursor);
+  }
+
+  private async streamSingle(
+    requests: ApiRequest[],
+    onChunk: (chunk: unknown[]) => Promise<void>,
+    onProgress: (fetched: number, total: number, current?: string | number) => void,
+  ): Promise<void> {
+    const merged: Record<string, unknown> = {};
+
+    for (const req of requests) {
+      const json = await safeFetch(req.url, req.headers);
+      const data = req.resultPath ? getByPath(json, req.resultPath) : json;
+      merged[req.id] = data;
+    }
+
+    onProgress(1, 1, 'single');
+
+    if (requests.length === 1) {
+      const data = merged[requests[0]!.id];
+      await onChunk(Array.isArray(data) ? data : [merged]);
+    } else {
+      await onChunk([merged]);
+    }
+  }
+
   private async fetchRange(
     pagination: Extract<PaginationConfig, { type: 'range' }>,
     requests: ApiRequest[],
