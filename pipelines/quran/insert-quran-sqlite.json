@@ -1,0 +1,69 @@
+{
+  "$schema": "../pipeline.schema.json",
+  "name": "Quran Relational Seeding (SQLite)",
+  "version": "1.0",
+
+  "source": {
+    "type": "api",
+    "pagination": {
+      "type": "range",
+      "param": "index",
+      "from": 1,
+      "to": 114
+    },
+    "requests": [
+      {
+        "id": "equran",
+        "url": "https://equran.id/api/v2/surat/{index}",
+        "resultPath": "data"
+      },
+      {
+        "id": "tafsir",
+        "url": "https://equran.id/api/v2/tafsir/{index}",
+        "resultPath": "data"
+      }
+    ],
+    "mergeKey": "index",
+    "delayMs": 300
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "pipelines/quran/output/quran.db",
+    "table": "surahs"
+  },
+
+  "operation": {
+    "mode": "insert"
+  },
+
+  "mapping": [
+    { "from": "equran.nomor",      "to": "surahs.number" },
+    { "from": "equran.nama",       "to": "surahs.name" },
+    { "from": "equran.namaLatin",  "to": "surahs.latin_name" },
+    { "from": "equran.jumlahAyat", "to": "surahs.total_verses", "transform": "toInt" },
+    { "from": "equran.tempatTurun", "to": "surahs.revelation_place" },
+    { "from": "equran.arti",       "to": "surahs.translation" },
+    { "from": "equran.deskripsi",  "to": "surahs.description" },
+    { "from": "equran.audioFull",  "to": "surahs.full_audio", "transform": "toJsonString" },
+    {
+      "from": "equran.ayat",
+      "to": "_expand",
+      "expand": true,
+      "mapping": [
+        { "from": "nomorAyat",     "to": "ayats.verse_number", "transform": "toInt" },
+        { "from": "teksArab",      "to": "ayats.arabic_text" },
+        { "from": "teksLatin",     "to": "ayats.latin_text" },
+        { "from": "teksIndonesia", "to": "ayats.indonesian_text" },
+        { "from": "audio.01",      "to": "ayat_audio.audio_01" },
+        { "from": "audio.02",      "to": "ayat_audio.audio_02" },
+        { "from": "audio.03",      "to": "ayat_audio.audio_03" },
+        { "from": "audio.04",      "to": "ayat_audio.audio_04" },
+        { "from": "audio.05",      "to": "ayat_audio.audio_05" },
+        { "from": "audio.06",      "to": "ayat_audio.audio_06" },
+        { "from": "nomorAyat",     "to": "tafsir.verse_number", "transform": "toInt" },
+        { "from": "tafsir.tafsir[nomorAyat].teks", "to": "tafsir.text" }
+      ]
+    }
+  ]
+}

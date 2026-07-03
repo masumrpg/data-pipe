@@ -23,12 +23,18 @@ export function LogPanel({ logs, maxLines = 12 }: Props) {
       <Text dimColor>── log ──────────────────────────────</Text>
       {visible.length === 0
         ? <Text dimColor>Waiting...</Text>
-        : visible.map((l, i) => (
-          <Text key={i} color={LEVEL_COLOR[l.level]}>
-            <Text dimColor>{l.ts.slice(11, 19)}</Text>
-            {' '}{l.msg}
-          </Text>
-        ))
+        : visible.map((l, i) => {
+          let prefix = '';
+          if (l.level === 'warn') prefix = '⚠️  [WARN] ';
+          if (l.level === 'error') prefix = '🚨  [ERROR] ';
+
+          return (
+            <Text key={i} color={LEVEL_COLOR[l.level]} bold={l.level === 'error'}>
+              <Text dimColor>{l.ts.slice(11, 19)}</Text>
+              {' '}{prefix}{l.msg}
+            </Text>
+          );
+        })
       }
     </Box>
   );

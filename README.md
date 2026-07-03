@@ -1,171 +1,80 @@
-# 🚀 DataPipe
+# 🚀 DataPipe CLI
 
-Generic data pipeline CLI — define source, mapping, dan target via file konfigurasi JSON/YAML, jalankan via terminal dengan UI interaktif berbasis **React Ink**.
-
-![Bun](https://img.shields.io/badge/runtime-Bun-f472b6?style=flat-square)
-![TypeScript](https://img.shields.io/badge/lang-TypeScript-3178c6?style=flat-square)
-![React Ink](https://img.shields.io/badge/UI-React_Ink-61dafb?style=flat-square)
+**DataPipe** is a generic, configuration-driven CLI engine for **ETL** (*Extract, Transform, Load*) pipelines. Define your source, mapping, and target database entirely inside JSON/YAML configurations, and run it with a beautiful, real-time interactive **React Ink TUI** (Terminal User Interface).
 
 ---
 
-## 📑 Daftar Isi
-
-- [Fitur](#-fitur)
-- [Stack](#-stack)
-- [Instalasi](#-instalasi)
-- [Quick Start](#-quick-start)
-- [Cara Pakai](#-cara-pakai)
-- [Format Konfigurasi Pipeline](#-format-konfigurasi-pipeline)
-  - [Source](#source)
-  - [Target](#target)
-  - [Operation](#operation)
-  - [Mapping](#mapping)
-  - [Transform](#transform)
-- [Contoh Lengkap](#-contoh-lengkap)
-- [Template Siap Copas](#-template-siap-copas)
-- [JSON Schema (Typesafe)](#-json-schema-typesafe)
-- [Keyboard Controls](#-keyboard-controls)
-- [Struktur Folder](#-struktur-folder)
-- [Menambah Source / Writer Baru](#-menambah-source--writer-baru)
+## 📑 Table of Contents
+- [Key Features](#-key-features)
+- [Installation](#-installation)
+- [CLI Command Usage](#-cli-command-usage)
+- [Pipeline Configuration (JSON Schema)](#-pipeline-configuration-json-schema)
+- [Ingestion Case Studies & Config Samples](#-ingestion-case-studies--config-samples)
+  - [Case 1: JSON to Postgres (Insert Mode)](#case-1-json-to-postgres-insert-mode)
+  - [Case 2: CSV to SQLite (Upsert & Type Transforms)](#case-2-csv-to-sqlite-upsert--type-transforms)
+  - [Case 3: Relational API to SQLite (Streaming + Explicit Relations + Lookups)](#case-3-relational-api-to-sqlite-streaming--explicit-relations--lookups)
+- [Mapping & Transform Rules](#-mapping--transform-rules)
+- [TUI Keyboard Controls](#-tui-keyboard-controls)
+- [CI/CD & Automated Scripting](#-cicd--automated-scripting)
 
 ---
 
-## ✨ Fitur
+## ✨ Key Features
 
-- 📂 **Multi-source** — baca dari JSON, CSV, atau REST API
-- 🗄️ **Multi-target** — tulis ke PostgreSQL atau SQLite
-- 🔄 **3 mode operasi** — `insert`, `upsert`, `update`
-- 🗺️ **Field mapping** — dot-path, transform, default value
-- 📦 **Array expand** — flatten nested array jadi multiple rows
-- 🔗 **Multi-API merge** — gabungkan response dari beberapa endpoint
-- 🎯 **JSON Schema** — autocomplete & validasi langsung di IDE
-- ⏸️ **Pause/Resume/Cancel** — kontrol pipeline via keyboard
-- 🔁 **Retry** — retry item yang gagal tanpa restart
-- 📊 **Live UI** — progress bar, log panel, status badge di terminal
+- 📂 **Multi-Source**: Reads local **JSON**, **CSV** files, or fetches data directly from **REST APIs**.
+- 🗄️ **Multi-Target**: Writes dynamically to **PostgreSQL** or **SQLite** databases.
+- ⚙️ **Hybrid Runtime**: Runs natively on both Node.js (via `better-sqlite3`) and Bun (via `bun:sqlite`).
+- ⏱️ **Real-time TUI Metrics**: Live progress bars, throughput metrics (`items/s`), active RAM usage, elapsed duration, and estimated time of arrival (`ETA`).
+- ⚡ **Incremental Ingestion**: Streams large JSON/CSV files and Paginated APIs chunk-by-chunk to guarantee low memory footprints (OOM-safe).
+- 🔗 **Constraint-Less Relation Mapping**: Automatically resolves parent-child primary/foreign keys with support for *Explicit Relations Override* and *Lookup Caching*.
+- 🤖 **CI/CD Friendly**: Suppresses interactive ANSI renders with `--raw` logging and supports headless process terminations with `--auto-quit`.
 
 ---
 
-## 🧱 Stack
+## 📦 Installation
 
-| Layer | Pilihan |
-|---|---|
-| Runtime | **Bun** |
-| UI Terminal | **React Ink** |
-| DB | **PostgreSQL** (`pg`) · **SQLite** (`bun:sqlite`) |
-| Config parser | **js-yaml** |
-| CSV parser | **papaparse** |
-| Language | **TypeScript** |
-
----
-
-## 📦 Instalasi
-
+### 1. Local Setup (Development)
+Clone this repository and install local package dependencies:
 ```bash
-# 1. Clone / masuk ke folder project
 cd data-pipe
-
-# 2. Install dependencies
-bun install
+bun install   # or npm install / pnpm install / yarn install
 ```
 
-> **Prasyarat:** [Bun](https://bun.sh) harus sudah terinstall.
+### 2. Global Installation (CLI Command)
+After publishing to the npm registry, install the CLI globally on any machine:
+```bash
+npm install -g datapipe-cli   # or pnpm add -g / yarn global add / bun install -g
+```
 
 ---
 
-## ⚡ Quick Start
-
-**Langkah 1** — Copy template sesuai kebutuhan:
+## 🎮 CLI Command Usage
 
 ```bash
-cp pipelines/templates/template-csv-to-sqlite.json pipelines/my-pipeline.json
+datapipe [options]
 ```
 
-**Langkah 2** — Edit file, isi placeholder `___...___`:
+### Options:
+| Argument | Shorthand | Description |
+|---|---|---|
+| `--pipeline <path>` | `-p <path>` | Path to the pipeline JSON or YAML configuration file. |
+| `--dry-run` | — | Fetch and transform the source data without writing anything to the target database. |
+| `--auto-quit` | `-q` | Automatically close the TUI rendering upon completion or failure (exits with code `0` or `1`). |
+| `--raw` | — | Emits line-by-line plain text logs (forces non-TTY mode suitable for CI/CD environments). |
+| `--retry` | — | Retries processing failed items recorded from the previous run. |
+| `--version` | `-v` | Prints current CLI engine version. |
+| `--help` | `-h` | Renders CLI usage instructions. |
+
+---
+
+## 📋 Pipeline Configuration (JSON Schema)
+
+Every pipeline is defined using a JSON file. Always reference the **JSON Schema** in the root property to unlock IDE autocomplete, validation warnings, and property hovers:
 
 ```json
 {
   "$schema": "./pipeline.schema.json",
-  "name": "Import Data Karyawan",
-  "version": "1.0",
-  "source": {
-    "type": "csv",
-    "filePath": "./exports/karyawan.csv",
-    "delimiter": ",",
-    "hasHeader": true
-  },
-  "target": {
-    "type": "sqlite",
-    "filePath": "./data.db",
-    "table": "karyawan"
-  },
-  "operation": {
-    "mode": "insert"
-  },
-  "mapping": [
-    { "from": "Nama",   "to": "nama",   "transform": "trim" },
-    { "from": "Email",  "to": "email",  "transform": "toLower" },
-    { "from": "Gaji",   "to": "gaji",   "transform": "toFloat" }
-  ]
-}
-```
-
-**Langkah 3** — Jalankan:
-
-```bash
-bun run src/index.tsx --pipeline pipelines/my-pipeline.json
-```
-
-Selesai! 🎉
-
----
-
-## 🎮 Cara Pakai
-
-### Menjalankan Pipeline
-
-```bash
-# Jalankan pipeline dari file config
-bun run src/index.tsx --pipeline pipelines/my-pipeline.json
-
-# Atau pakai shorthand -p
-bun run src/index.tsx -p pipelines/my-pipeline.json
-```
-
-### Dry Run
-
-Fetch + mapping tapi **tidak insert ke DB** — berguna untuk testing config:
-
-```bash
-bun run src/index.tsx --pipeline pipelines/my-pipeline.json --dry-run
-```
-
-### Format YAML
-
-Selain JSON, config juga bisa ditulis dalam YAML:
-
-```bash
-bun run src/index.tsx --pipeline pipelines/my-pipeline.yaml
-```
-
-### Menggunakan npm scripts
-
-```bash
-# Jalankan via dev script
-bun run dev -- --pipeline pipelines/my-pipeline.json
-```
-
----
-
-## 📋 Format Konfigurasi Pipeline
-
-Satu file = satu pipeline. Simpan di folder `pipelines/`.
-
-Struktur utama:
-
-```json
-{
-  "$schema": "./pipeline.schema.json",
-  "name": "Nama Pipeline",
+  "name": "My Ingestion Pipeline",
   "version": "1.0",
   "source": { ... },
   "target": { ... },
@@ -176,575 +85,224 @@ Struktur utama:
 
 ---
 
-### Source
+## 📝 Ingestion Case Studies & Config Samples
 
-#### 📄 JSON File
-
-```json
-"source": {
-  "type": "json",
-  "filePath": "./data/users.json",
-  "resultPath": "data.users"
-}
-```
-
-| Field | Wajib | Keterangan |
-|---|---|---|
-| `type` | ✅ | Selalu `"json"` |
-| `filePath` | ✅ | Path ke file JSON (relatif atau absolut) |
-| `resultPath` | ❌ | Dot-path ke array data, misal `"data.users"`. Jika kosong, seluruh file dianggap array |
-
-#### 📊 CSV File
-
-```json
-"source": {
-  "type": "csv",
-  "filePath": "./exports/products.csv",
-  "delimiter": ",",
-  "hasHeader": true
-}
-```
-
-| Field | Wajib | Keterangan |
-|---|---|---|
-| `type` | ✅ | Selalu `"csv"` |
-| `filePath` | ✅ | Path ke file CSV |
-| `delimiter` | ✅ | Pemisah kolom: `,` `;` `\t` `\|` |
-| `hasHeader` | ✅ | `true` jika baris pertama adalah header |
-
-#### 🌐 REST API
-
-```json
-"source": {
-  "type": "api",
-  "pagination": {
-    "type": "range",
-    "param": "id",
-    "from": 1,
-    "to": 100
-  },
-  "requests": [
-    {
-      "id": "main",
-      "url": "https://api.example.com/items/{id}",
-      "resultPath": "data",
-      "headers": {
-        "Authorization": "Bearer TOKEN"
-      }
-    }
-  ],
-  "mergeKey": "id",
-  "delayMs": 200
-}
-```
-
-| Field | Wajib | Keterangan |
-|---|---|---|
-| `type` | ✅ | Selalu `"api"` |
-| `pagination` | ✅ | Lihat tabel pagination di bawah |
-| `requests` | ✅ | Array endpoint API |
-| `mergeKey` | ✅ | Key penggabungan multi-request |
-| `delayMs` | ✅ | Delay antar request (ms), untuk rate limiting |
-
-**Tipe Pagination:**
-
-| Type | Keterangan | Field Tambahan |
-|---|---|---|
-| `range` | Loop dari `from` sampai `to` | `param`, `from`, `to` |
-| `cursor` | Loop sampai cursor null | `param`, `nextPath` |
-| `none` | Single request, tanpa loop | — |
-
-**Multi-Source Merge:**
-
-Gunakan beberapa object di `requests` untuk fetch dari multiple API sekaligus:
-
-```json
-"requests": [
-  { "id": "source_a", "url": "https://api-a.com/{id}", "resultPath": "data" },
-  { "id": "source_b", "url": "https://api-b.com/{id}", "resultPath": "data" }
-]
-```
-
-Hasilnya di-merge jadi: `{ source_a: {...}, source_b: {...}, id: 1 }`
-
-Akses di mapping: `"from": "source_a.nama"`, `"from": "source_b.detail"`
-
----
-
-### Target
-
-#### 🐘 PostgreSQL
-
-```json
-"target": {
-  "type": "postgres",
-  "connectionString": "postgresql://user:pass@localhost:5432/mydb",
-  "table": "users"
-}
-```
-
-#### 📦 SQLite
-
-```json
-"target": {
-  "type": "sqlite",
-  "filePath": "./local.db",
-  "table": "users"
-}
-```
-
----
-
-### Operation
-
-```json
-"operation": {
-  "mode": "insert"
-}
-```
-
-| Mode | Keterangan | Field Tambahan |
-|---|---|---|
-| `insert` | INSERT biasa, error kalau duplicate | — |
-| `upsert` | INSERT ON CONFLICT DO UPDATE | `conflictOn` (wajib) |
-| `update` | UPDATE WHERE | `updateWhere` (wajib) |
-
-**Contoh Upsert:**
-
-```json
-"operation": {
-  "mode": "upsert",
-  "conflictOn": ["email"]
-}
-```
-
-> Jika `email` sudah ada di DB, row di-update. Jika belum, di-insert.
-
-**Contoh Upsert Composite Key:**
-
-```json
-"operation": {
-  "mode": "upsert",
-  "conflictOn": ["nomor_surah", "nomor_ayat"]
-}
-```
-
-**Contoh Update:**
-
-```json
-"operation": {
-  "mode": "update",
-  "updateWhere": [
-    { "column": "sku", "fromField": "SKU" }
-  ]
-}
-```
-
-> `UPDATE products SET ... WHERE sku = (nilai dari field SKU di source)`
-
----
-
-### Mapping
-
-Mapping mendefinisikan bagaimana field dari source dipetakan ke kolom di target database.
-
-```json
-"mapping": [
-  { "from": "fieldSource", "to": "kolom_db" },
-  { "from": "fieldSource", "to": "kolom_db", "transform": "toLower" },
-  { "from": "fieldSource", "to": "kolom_db", "default": "nilai_default" }
-]
-```
-
-| Property | Wajib | Keterangan |
-|---|---|---|
-| `from` | ✅ | Dot-path ke field di source data |
-| `to` | ✅ | Nama kolom di tabel target |
-| `transform` | ❌ | Fungsi transform (lihat tabel Transform) |
-| `default` | ❌ | Nilai default jika source field null/undefined |
-| `expand` | ❌ | `true` untuk expand array → multiple rows |
-| `mapping` | ❌ | Child mapping (wajib jika `expand: true`) |
-
-#### Dot-Path
-
-Akses nested object dengan titik:
-
-```
-"user.name"       → { user: { name: "Budi" } }          → "Budi"
-"data.items"       → { data: { items: [...] } }          → [...]
-"address.city"     → { address: { city: "Jakarta" } }    → "Jakarta"
-```
-
-#### Array Expand
-
-Untuk flatten nested array jadi multiple rows:
-
-```json
-"mapping": [
-  { "from": "nama_surah", "to": "surah" },
-  {
-    "from": "ayat",
-    "to": "_expand",
-    "expand": true,
-    "mapping": [
-      { "from": "nomorAyat",    "to": "nomor_ayat" },
-      { "from": "teksArab",     "to": "teks_arab" },
-      { "from": "teksIndonesia","to": "teks_indonesia" }
-    ]
-  }
-]
-```
-
-**Input:**
-```json
-{ "nama_surah": "Al-Fatihah", "ayat": [
-  { "nomorAyat": 1, "teksArab": "...", "teksIndonesia": "..." },
-  { "nomorAyat": 2, "teksArab": "...", "teksIndonesia": "..." }
-]}
-```
-
-**Output (2 rows):**
-| surah | nomor_ayat | teks_arab | teks_indonesia |
-|---|---|---|---|
-| Al-Fatihah | 1 | ... | ... |
-| Al-Fatihah | 2 | ... | ... |
-
-> Field parent (`nama_surah`) otomatis di-copy ke setiap child row.
-
-#### Cross-Source Reference
-
-Referensi data dari source lain dalam expand:
-
-```json
-{ "from": "tajweed.ayahs[nomorAyat].text", "to": "teks_tajweed" }
-```
-
-Artinya: cari di `tajweed.ayahs` item yang `nomorAyat`-nya cocok dengan item saat ini, lalu ambil `.text`.
-
----
-
-### Transform
-
-| Key | Fungsi | Contoh Input → Output |
-|---|---|---|
-| `toInt` | Parse ke integer | `"42"` → `42` |
-| `toFloat` | Parse ke float | `"3.14"` → `3.14` |
-| `toString` | Konversi ke string | `123` → `"123"` |
-| `toISODate` | Parse ke ISO 8601 | `"2024-01-15"` → `"2024-01-15T00:00:00.000Z"` |
-| `toLower` | Lowercase | `"HELLO"` → `"hello"` |
-| `toUpper` | Uppercase | `"hello"` → `"HELLO"` |
-| `trim` | Hapus whitespace | `"  hi  "` → `"hi"` |
-| `nullIfEmpty` | Null kalau kosong | `""` → `null` |
-
----
-
-## 📝 Contoh Lengkap
-
-### JSON → PostgreSQL (Insert)
+### Case 1: JSON to Postgres (Insert Mode)
+Extracts a list of users from a local nested JSON array and appends them to a Postgres database.
 
 ```json
 {
-  "$schema": "./pipeline.schema.json",
-  "name": "Import users dari JSON",
+  "$schema": "../pipeline.schema.json",
+  "name": "Import Users from JSON",
   "version": "1.0",
   "source": {
     "type": "json",
     "filePath": "./data/users.json",
-    "resultPath": "data.users"
+    "resultPath": "users_list"
   },
   "target": {
     "type": "postgres",
-    "connectionString": "postgresql://user:pass@localhost:5432/appdb",
+    "connectionString": "postgresql://postgres:secret@localhost:5432/mydb",
+    "schema": "public",
     "table": "users"
   },
-  "operation": { "mode": "insert" },
+  "operation": {
+    "mode": "insert"
+  },
   "mapping": [
-    { "from": "id",    "to": "external_id" },
-    { "from": "name",  "to": "full_name",  "transform": "trim" },
-    { "from": "email", "to": "email",      "transform": "toLower" },
-    { "from": "role",  "to": "role",       "default": "user" }
+    { "from": "id", "to": "id" },
+    { "from": "profile.name", "to": "full_name", "transform": "trim" },
+    { "from": "profile.email", "to": "email_address", "transform": "toLower" },
+    { "from": "status", "to": "is_active", "default": "active" }
   ]
 }
 ```
 
-### CSV → SQLite (Upsert)
+---
+
+### Case 2: CSV to SQLite (Upsert & Type Transforms)
+Parses a CSV file containing products, applies float/integer conversions, and performs an `upsert` matching on the `sku` key.
 
 ```json
 {
-  "$schema": "./pipeline.schema.json",
-  "name": "Sync contacts dari CSV",
+  "$schema": "../pipeline.schema.json",
+  "name": "Sync Products from CSV",
   "version": "1.0",
   "source": {
     "type": "csv",
-    "filePath": "./exports/contacts.csv",
+    "filePath": "./data/products.csv",
     "delimiter": ",",
     "hasHeader": true
   },
   "target": {
     "type": "sqlite",
-    "filePath": "./contacts.db",
-    "table": "contacts"
+    "filePath": "./dist/products.db",
+    "table": "m_products"
   },
   "operation": {
     "mode": "upsert",
-    "conflictOn": ["email"]
+    "conflictOn": ["sku"]
   },
   "mapping": [
-    { "from": "Name",    "to": "name",    "transform": "trim" },
-    { "from": "Email",   "to": "email",   "transform": "toLower" },
-    { "from": "Phone",   "to": "phone",   "transform": "toString" },
-    { "from": "Company", "to": "company", "transform": "nullIfEmpty" }
+    { "from": "SKU", "to": "sku", "transform": "trim" },
+    { "from": "Title", "to": "title" },
+    { "from": "Price", "to": "price", "transform": "toFloat", "default": 0.0 },
+    { "from": "Stock", "to": "stock_quantity", "transform": "toInt", "default": 0 },
+    { "from": "Description", "to": "description", "transform": "nullIfEmpty" }
   ]
 }
 ```
 
-### API Multi-Source → PostgreSQL (Upsert + Expand)
+---
+
+### Case 3: Relational API to SQLite (Streaming + Explicit Relations + Lookups)
+Fetches Quran chapters and verse translations from multiple REST APIs. It splits flattened array data into normalized SQLite tables, links parent primary keys to child foreign keys dynamically, and resolves foreign keys using **Explicit Relations** and **Lookups**.
 
 ```json
 {
-  "$schema": "./pipeline.schema.json",
-  "name": "Quran Seed — equran.id + tajweed",
+  "$schema": "../pipeline.schema.json",
+  "name": "Quran Relational SQLite Seeding",
   "version": "1.0",
   "source": {
     "type": "api",
-    "pagination": { "type": "range", "param": "index", "from": 1, "to": 114 },
+    "pagination": {
+      "type": "range",
+      "param": "index",
+      "from": 1,
+      "to": 114
+    },
     "requests": [
-      { "id": "equran",  "url": "https://equran.id/api/v2/surat/{index}", "resultPath": "data" },
-      { "id": "tajweed", "url": "https://api.alquran.cloud/v1/surah/{index}/quran-tajweed", "resultPath": "data" }
+      {
+        "id": "equran",
+        "url": "https://equran.id/api/v2/surat/{index}",
+        "resultPath": "data"
+      },
+      {
+        "id": "tafsir",
+        "url": "https://equran.id/api/v2/tafsir/{index}",
+        "resultPath": "data"
+      }
     ],
     "mergeKey": "index",
     "delayMs": 300
   },
   "target": {
-    "type": "postgres",
-    "connectionString": "postgresql://user:pass@localhost:5432/qurandb",
-    "table": "quran_ayat"
+    "type": "sqlite",
+    "filePath": "pipelines/quran/output/quran.db",
+    "table": "surahs",
+    "relations": [
+      {
+        "table": "ayat_audio",
+        "column": "verse_id",
+        "parentTable": "ayats",
+        "parentColumn": "id"
+      }
+    ]
   },
   "operation": {
-    "mode": "upsert",
-    "conflictOn": ["nomor_surah", "nomor_ayat"]
+    "mode": "insert"
   },
   "mapping": [
-    { "from": "equran.nomor",     "to": "nomor_surah" },
-    { "from": "equran.nama",      "to": "nama_surah" },
-    { "from": "equran.namaLatin", "to": "nama_latin" },
+    { "from": "equran.nomor",      "to": "surahs.number" },
+    { "from": "equran.nama",       "to": "surahs.name" },
+    { "from": "equran.namaLatin",  "to": "surahs.latin_name" },
+    { "from": "equran.jumlahAyat", "to": "surahs.total_verses", "transform": "toInt" },
     {
-      "from": "equran.ayat", "to": "_expand", "expand": true,
+      "from": "equran.ayat",
+      "to": "_expand",
+      "expand": true,
       "mapping": [
-        { "from": "nomorAyat",     "to": "nomor_ayat" },
-        { "from": "teksArab",      "to": "teks_arab" },
-        { "from": "teksIndonesia", "to": "teks_indonesia" },
-        { "from": "tajweed.ayahs[nomorAyat].text", "to": "teks_tajweed" }
+        { "from": "nomorAyat",     "to": "ayats.verse_number", "transform": "toInt" },
+        { "from": "teksArab",      "to": "ayats.arabic_text" },
+        { "from": "teksLatin",     "to": "ayats.latin_text" },
+        { "from": "teksIndonesia", "to": "ayats.indonesian_text" },
+        
+        // Lookup relation: Get chapter ID from 'surahs' where 'number' equals 'equran.nomor'
+        {
+          "from": "equran.nomor",
+          "to": "ayats.surah_id",
+          "lookup": { "table": "surahs", "key": "number", "returning": "id" }
+        },
+        
+        // Unpivoting dynamic columns into child table 'ayat_audio'
+        { "from": "audio.01",      "to": "ayat_audio.audio_01" },
+        { "from": "audio.02",      "to": "ayat_audio.audio_02" },
+        
+        { "from": "nomorAyat",     "to": "tafsir.verse_number", "transform": "toInt" },
+        { "from": "tafsir.tafsir[nomorAyat].teks", "to": "tafsir.text" },
+        
+        // Lookup relation: Get verse ID from 'ayats' to map onto 'tafsir' table
+        {
+          "from": "nomorAyat",
+          "to": "tafsir.verse_id",
+          "lookup": { "table": "ayats", "key": "verse_number", "returning": "id" }
+        }
       ]
     }
   ]
 }
 ```
 
-> Lihat lebih banyak contoh di folder [`pipelines/samples/`](pipelines/samples/).
+---
+
+## 🔀 Mapping & Transform Rules
+
+### Transform Keys (`transform`):
+- `toInt`: Parses string to integer.
+- `toFloat`: Parses string to decimal/float.
+- `toString`: Standard coercion to string.
+- `toJsonString`: Serializes objects/arrays to stringified JSON for text/json DB columns.
+- `toISODate`: Formats standard date inputs to ISO 8601 strings.
+- `toLower` / `toUpper`: Changes string casing to lowercase / uppercase.
+- `trim`: Strips outer left/right white spaces.
+- `nullIfEmpty`: Coerces empty or blank strings to `null`.
 
 ---
 
-## 📋 Template Siap Copas
+## ⌨️ TUI Keyboard Controls
 
-Tinggal copy, ganti `___PLACEHOLDER___`, dan jalankan!
+While running in interactive TUI mode inside your terminal, control the process using the following keys:
 
-```
-pipelines/templates/
-├── template-json-to-postgres.json
-├── template-json-to-sqlite.json
-├── template-csv-to-postgres.json
-├── template-csv-to-sqlite.json
-├── template-api-range-to-postgres.json
-├── template-api-range-to-sqlite.json
-├── template-api-cursor-to-postgres.json
-├── template-api-none-to-sqlite.json
-└── template-api-multi-merge-expand.json
-```
+| Key | Execution Status | Action |
+|---|---|---|
+| `p` | Running | ⏸ Pauses the pipeline. |
+| `p` | Paused | ▶ Resumes the pipeline. |
+| `c` | Running or Paused | ✗ Cancels the pipeline execution. |
+| `r` | Done (with failed items) | 🔁 Retries processing failed rows. |
+| `q` / `Esc` | Done or Error | Closes the TUI and exits the terminal. |
 
-**Cara pakai:**
+---
+
+## 🤖 CI/CD & Automated Scripting
+
+To run DataPipe inside headless environments (such as GitHub Actions or background cron tasks) and prevent interactive console redraw pollution, run it with `--raw` and `--auto-quit`:
 
 ```bash
-# 1. Copy template into a project folder
-mkdir -p pipelines/my-project
-cp pipelines/templates/template-csv-to-postgres.json pipelines/my-project/pipeline.json
+datapipe --pipeline pipelines/my-pipeline.json --raw --auto-quit
+```
 
-# 2. Edit — replace all ___PLACEHOLDER___
-#    IDE autocomplete is enabled due to $schema!
+### GitHub Actions Workflow Example:
+```yaml
+name: Daily Data Ingestion
+on:
+  schedule:
+    - cron: '0 0 * * *' # Every day at midnight
 
-# 3. Run
-bun run src/index.tsx --pipeline pipelines/my-project/pipeline.json
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v1
+      
+      - name: Install DataPipe Globally
+        run: bun install -g datapipe-cli
+        
+      - name: Run Pipeline
+        run: datapipe -p pipelines/daily-sync.json --raw -q
 ```
 
 ---
 
-## 🎯 JSON Schema (Typesafe)
-
-Semua file config punya `$schema` yang memberikan:
-
-| Fitur | Keterangan |
-|---|---|
-| ✅ **Autocomplete** | Ketik `"` → muncul semua property yang valid |
-| ✅ **Validasi tipe** | `"mode": "delete"` → langsung error |
-| ✅ **Conditional required** | Pilih `upsert` → `conflictOn` wajib diisi |
-| ✅ **Transform enum** | Autocomplete semua transform yang tersedia |
-| ✅ **Deskripsi hover** | Hover di property → tooltip penjelasan |
-| ✅ **No typo** | Property yang tidak dikenal langsung error |
-
-Tambahkan `$schema` di baris pertama file config:
-
-```json
-{
-  "$schema": "./pipeline.schema.json",
-  ...
-}
-```
-
-> Untuk file di subfolder, sesuaikan path: `"$schema": "./../pipeline.schema.json"`
-
----
-
-## ⌨️ Keyboard Controls
-
-Saat pipeline berjalan, gunakan keyboard untuk kontrol:
-
-| Key | Status | Aksi |
-|---|---|---|
-| `p` | Running | ⏸ Pause pipeline |
-| `p` | Paused | ▶ Resume pipeline |
-| `c` | Running/Paused | ✗ Cancel pipeline |
-| `r` | Done (ada gagal) | 🔁 Retry item yang gagal |
-| `q` / `Esc` | Done | Keluar |
-
----
-
-## 📁 Struktur Folder
-
-```
-data-pipe/
-├── src/
-│   ├── index.tsx                  ← entry point (Ink render)
-│   ├── pipeline/
-│   │   ├── engine.ts             ← orchestrator utama
-│   │   ├── mapper.ts             ← field mapping + transform
-│   │   ├── reader/
-│   │   │   ├── index.ts          ← factory reader
-│   │   │   ├── json.reader.ts
-│   │   │   ├── csv.reader.ts
-│   │   │   └── api.reader.ts
-│   │   └── writer/
-│   │       ├── index.ts          ← factory writer
-│   │       ├── postgres.writer.ts
-│   │       └── sqlite.writer.ts
-│   ├── ui/
-│   │   ├── App.tsx               ← root Ink component
-│   │   ├── components/
-│   │   │   ├── ProgressBar.tsx
-│   │   │   ├── LogPanel.tsx
-│   │   │   ├── StatusBadge.tsx
-│   │   │   └── ResultSummary.tsx
-│   │   └── hooks/
-│   │       └── usePipeline.ts    ← state + engine bridge
-│   └── shared/
-│       └── types.ts              ← semua types
-├── pipelines/
-│   ├── pipeline.schema.json      ← JSON Schema
-│   ├── products/                 ← products project
-│   │   ├── pipeline.json         
-│   │   ├── input/
-│   │   │   └── products.csv
-│   │   ├── output/
-│   │   │   └── products.db
-│   │   └── init-db.ts            ← SQLite DB initializer
-│   ├── quran/                    ← quran postgres project
-│   │   ├── init-db.ts            ← Postgres database & schema creator
-│   │   └── pipeline.json         ← Seeding config for generic CLI
-│   ├── samples/                  ← contoh siap pakai
-│   └── templates/                ← template copas
-├── package.json
-└── tsconfig.json
-```
-
----
-
-## 🔌 Menambah Source / Writer Baru
-
-### Menambah Source Type
-
-1. Buat file baru di `src/pipeline/reader/`, implementasikan interface:
-
-```ts
-import type { Reader } from '../../shared/types';
-
-export class MyReader implements Reader {
-  async fetchAll(onProgress: (fetched: number, total: number) => void): Promise<unknown[]> {
-    // fetch data...
-    onProgress(items.length, items.length);
-    return items;
-  }
-}
-```
-
-2. Daftarkan di `src/pipeline/reader/index.ts`:
-
-```ts
-import { MyReader } from './my.reader';
-
-// di dalam switch:
-case 'my-source': return new MyReader(config);
-```
-
-3. Update type di `src/shared/types.ts` — tambah union member baru di `SourceConfig`.
-
-### Menambah DB Writer
-
-1. Buat file baru di `src/pipeline/writer/`, implementasikan interface:
-
-```ts
-import type { Writer, OperationConfig } from '../../shared/types';
-
-export class MyWriter implements Writer {
-  async connect(): Promise<void> { /* ... */ }
-  async disconnect(): Promise<void> { /* ... */ }
-  async write(row: Record<string, unknown>, op: OperationConfig, table: string): Promise<void> {
-    // write row to DB...
-  }
-}
-```
-
-2. Daftarkan di `src/pipeline/writer/index.ts`:
-
-```ts
-import { MyWriter } from './my.writer';
-
-// di dalam switch:
-case 'my-db': return new MyWriter(config);
-```
-
-3. Update type di `src/shared/types.ts` — tambah union member baru di `TargetConfig`.
-
----
-
-## 🕌 Project: Quran Relational Database (PostgreSQL)
-
-Project `pipelines/quran/` adalah seeder khusus untuk menarik data tafsir, surat, dan ayat dari API `equran.id` ke dalam database relasional ternormalisasi PostgreSQL `quran_pipe_data`.
-
-### Langkah-langkah Menjalankan:
-
-1. **Inisialisasi Database & Tabel**
-   Command ini akan menghubungkan ke Postgres lokal dengan username `ma-sum` (tanpa password), membuat database `quran_pipe_data`, lalu membuat seluruh tabel, indeks, foreign keys, serta pre-seed 5 reciters:
-   ```bash
-   bun run pipelines/quran/init-db.ts
-   ```
-
-2. **Jalankan Seeder (Fetch & Insert)**
-   Menarik seluruh data dari list surah, detail ayat, dan tafsir (114 surah) lalu memasukkannya ke database secara transaksional menggunakan generic CLI:
-   ```bash
-   bun run src/index.tsx --pipeline pipelines/quran/pipeline.json
-   ```
-
----
-
-## 📄 Lisensi
-
-MIT
+## 📄 License
+MIT License.

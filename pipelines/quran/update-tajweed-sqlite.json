@@ -1,0 +1,31 @@
+{
+  "$schema": "../pipeline.schema.json",
+  "name": "Quran Tajweed Update (SQLite)",
+  "version": "1.0",
+
+  "source": {
+    "type": "json",
+    "filePath": "pipelines/quran/input/quran-tajweed.json",
+    "resultPath": "quran.quran-tajweed"
+  },
+
+  "target": {
+    "type": "sqlite",
+    "filePath": "pipelines/quran/output/quran.db",
+    "table": "ayats"
+  },
+
+  "operation": {
+    "mode": "update",
+    "updateWhere": [
+      { "column": "surah_number" },
+      { "column": "verse_number" }
+    ]
+  },
+
+  "mapping": [
+    { "from": "surah", "to": "surah_number", "transform": "toInt" },
+    { "from": "ayah",  "to": "verse_number", "transform": "toInt" },
+    { "from": "verse", "to": "tajweed_arabic_text" }
+  ]
+}

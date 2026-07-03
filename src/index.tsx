@@ -2,8 +2,9 @@ import { render } from 'ink';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, extname } from 'path';
 import * as yaml from 'js-yaml';
+import pkg from '../package.json';
 import { App } from './ui/App';
-import type { PipelineConfig } from './shared/types';
+import type { PipelineConfig, LogEntry } from './shared/types';
 import {
   configError,
   fileError,
@@ -25,13 +26,16 @@ function parseArgs() {
     dryRun: args.includes('--dry-run'),
     testConn: args.includes('--test-connection'),
     retry: args.includes('--retry'),
+    autoQuit: args.includes('--auto-quit') || args.includes('-q'),
+    raw: args.includes('--raw') || args.includes('--silent'),
+    version: args.includes('--version') || args.includes('-v'),
     help: args.includes('--help') || args.includes('-h'),
   };
 }
 
 function printUsage() {
   console.log(`
-  \x1b[1;36mDataPipe\x1b[0m — Generic data pipeline CLI
+  \x1b[1;36mDataPipe\x1b[0m v${pkg.version} — Generic data pipeline CLI
 
   \x1b[1mUsage:\x1b[0m
     bun run src/index.tsx --pipeline <path/to/config.json>
@@ -41,6 +45,8 @@ function printUsage() {
     --dry-run               Fetch + map data without writing to target database
     --test-connection       Only test connection to the target database
     --retry                 Retry failed items from the previous pipeline run
+    --auto-quit, -q         Auto-quit the process when complete or on error
+    --version, -v           Display version information
     --help, -h              Display this help menu
 
   \x1b[1mExamples:\x1b[0m
@@ -103,7 +109,12 @@ function loadConfig(pipelinePath: string): PipelineConfig {
 }
 
 async function main() {
-  const { pipelinePath, dryRun, help } = parseArgs();
+  const { pipelinePath, dryRun, autoQuit, raw, version, help } = parseArgs();
+
+  if (version) {
+    console.log(pkg.version);
+    process.exit(0);
+  }
 
   if (help) {
     printUsage();
@@ -121,7 +132,58 @@ async function main() {
   }
 
   const config = loadConfig(pipelinePath);
-  render(<App config={config} dryRun={dryRun} />);
+
+  const isTTY = process.stdout.isTTY && !process.env['CI'];
+  const useRawLogging = raw || !isTTY;
+
+  if (useRawLogging) {
+    const { PipelineEngine } = await import('./pipeline/engine');
+    const engine = new PipelineEngine(config, dryRun);
+
+    console.log(`\x1b[1;36mDataPipe\x1b[0m — Running in raw logging mode`);
+    console.log(`----------------------------------------`);
+
+    engine.on('log', (entry: LogEntry) => {
+      const colors: Record<'info' | 'warn' | 'error', string> = { info: '\x1b[37m', warn: '\x1b[33m', error: '\x1b[31;1m' };
+      const prefix = entry.level === 'info' ? '' : `[${entry.level.toUpperCase()}] `;
+      console.log(`[${entry.ts.slice(11, 19)}] ${colors[entry.level] || ''}${prefix}${entry.msg}\x1b[0m`);
+    });
+
+    try {
+      await engine.run();
+      const state = engine.getState();
+      if (state.failed.length > 0) {
+        console.error(`\x1b[31;1m✗ Completed with ${state.failed.length} failures.\x1b[0m`);
+        process.exit(1);
+      } else {
+        console.log(`\x1b[32;1m✓ Completed successfully.\x1b[0m`);
+        process.exit(0);
+      }
+    } catch (err: any) {
+      console.error(`\x1b[31;1m🚨 Pipeline crashed: ${err.message || String(err)}\x1b[0m`);
+      process.exit(1);
+    }
+    return;
+  }
+  
+  let success = true;
+  const { waitUntilExit } = render(
+    <App
+      config={config}
+      dryRun={dryRun}
+      autoQuit={autoQuit}
+      onComplete={(isSuccess) => {
+        success = isSuccess;
+      }}
+    />
+  );
+  
+  await waitUntilExit();
+  if (!success) {
+    process.exit(1);
+  } else {
+    process.exit(0);
+  }
 }
 
 main().catch((err) => {

@@ -1,5 +1,5 @@
 import pg from 'pg';
-import type { Writer, OperationConfig } from '../../shared/types';
+import type { Writer, OperationConfig, ExplicitRelation, MappingRule } from '../../shared/types';
 
 const { Client } = pg;
 
@@ -8,6 +8,7 @@ type PostgresTargetConfig = {
   connectionString: string;
   table: string;
   schema?: string;
+  relations?: ExplicitRelation[];
 };
 
 interface ForeignKey {
@@ -27,6 +28,7 @@ export class PostgresWriter implements Writer {
   private foreignKeys: ForeignKey[] = [];
   private primaryKeys: PrimaryKey[] = [];
   private tableColumns: Record<string, string[]> = {};
+  private lookupCache: Record<string, unknown> = {};
 
   constructor(private config: PostgresTargetConfig) {
     this.client = new Client({ connectionString: config.connectionString });
@@ -134,6 +136,16 @@ export class PostgresWriter implements Writer {
                 }
               }
             }
+          }
+        }
+      }
+      if (this.config.relations) {
+        for (const rel of this.config.relations) {
+          const exists = this.foreignKeys.some(
+            fk => fk.table === rel.table && fk.column === rel.column && fk.parentTable === rel.parentTable && fk.parentColumn === rel.parentColumn
+          );
+          if (!exists) {
+            this.foreignKeys.push(rel);
           }
         }
       }
@@ -288,7 +300,7 @@ export class PostgresWriter implements Writer {
     return tableRows;
   }
 
-  private async writeRelational(row: Record<string, unknown>): Promise<void> {
+  private async writeRelational(row: Record<string, unknown>, rules?: MappingRule[]): Promise<void> {
     const tableRows = this.normalizeRowData(row);
     const tables = Object.keys(tableRows);
     const executionOrder = this.getExecutionOrder(tables);
@@ -301,8 +313,13 @@ export class PostgresWriter implements Writer {
         const rowsToInsert = tableRows[table];
         if (!rowsToInsert || rowsToInsert.length === 0) continue;
 
-        for (const r of rowsToInsert) {
+        for (let r of rowsToInsert) {
           if (Object.keys(r).length === 0) continue;
+
+          // Resolve lookups
+          if (rules) {
+            r = await this.resolveLookups(r, table, rules);
+          }
 
           // Resolve foreign keys
           for (const fk of this.foreignKeys) {
@@ -368,15 +385,73 @@ export class PostgresWriter implements Writer {
     }
   }
 
-  async write(row: Record<string, unknown>, op: OperationConfig, table: string): Promise<void> {
-    const hasRelationalKeys = Object.keys(row).some(k => k.includes('.'));
+  private async resolveLookups(
+    row: Record<string, unknown>,
+    table: string,
+    rules: MappingRule[]
+  ): Promise<Record<string, unknown>> {
+    const result = { ...row };
+    for (const col of Object.keys(result)) {
+      const val = result[col];
+      if (val == null) continue;
+
+      const rule = this.findLookupRule(col, table, rules);
+      if (rule && rule.lookup) {
+        const { table: lookupTable, key: lookupKey, returning } = rule.lookup;
+        result[col] = await this.executeLookup(lookupTable, lookupKey, returning, val);
+      }
+    }
+    return result;
+  }
+
+  private findLookupRule(col: string, table: string, rules: MappingRule[]): MappingRule | undefined {
+    for (const rule of rules) {
+      if (rule.lookup) {
+        if (rule.to === col || rule.to === `${table}.${col}`) {
+          return rule;
+        }
+      }
+      if (rule.mapping) {
+        const found = this.findLookupRule(col, table, rule.mapping);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+
+  private async executeLookup(
+    lookupTable: string,
+    lookupKey: string,
+    returning: string,
+    value: unknown
+  ): Promise<unknown> {
+    const cacheKey = `${lookupTable}:${lookupKey}:${returning}:${value}`;
+    if (this.lookupCache[cacheKey] !== undefined) {
+      return this.lookupCache[cacheKey];
+    }
+
+    const sql = `SELECT "${returning}" FROM "${lookupTable}" WHERE "${lookupKey}" = $1`;
+    const res = await this.client.query(sql, [value]);
+    const resolvedValue = res.rows[0] ? res.rows[0][returning] : null;
+
+    this.lookupCache[cacheKey] = resolvedValue;
+    return resolvedValue;
+  }
+
+  async write(row: Record<string, unknown>, op: OperationConfig, table: string, rules?: MappingRule[]): Promise<void> {
+    let resolvedRow = row;
+    if (rules) {
+      resolvedRow = await this.resolveLookups(row, table, rules);
+    }
+
+    const hasRelationalKeys = Object.keys(resolvedRow).some(k => k.includes('.'));
     if (hasRelationalKeys) {
-      await this.writeRelational(row);
+      await this.writeRelational(resolvedRow, rules);
       return;
     }
 
-    const columns = Object.keys(row);
-    const values = Object.values(row);
+    const columns = Object.keys(resolvedRow);
+    const values = Object.values(resolvedRow);
     const placeholders = columns.map((_, i) => `$${i + 1}`);
 
     switch (op.mode) {

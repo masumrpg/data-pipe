@@ -6,9 +6,10 @@ type Props = {
   width?: number;
   hasFailed?: boolean;
   label?: string;
+  eta?: string;
 };
 
-export function ProgressBar({ done, total, width = 40, hasFailed, label = 'items' }: Props) {
+export function ProgressBar({ done, total, width = 40, hasFailed, label = 'items', eta }: Props) {
   const percent = total > 0 ? Math.round((done / total) * 100) : 0;
   const filled  = Math.round((percent / 100) * width);
   const empty   = width - filled;
@@ -18,7 +19,10 @@ export function ProgressBar({ done, total, width = 40, hasFailed, label = 'items
   return (
     <Box flexDirection="column" marginY={0}>
       <Text color={color}>{bar} {percent}%</Text>
-      <Text dimColor>{done} / {total} {label}</Text>
+      <Text dimColor>
+        {done} / {total} {label}
+        {eta && ` (ETA: ${eta})`}
+      </Text>
     </Box>
   );
 }
