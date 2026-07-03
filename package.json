@@ -1,10 +1,29 @@
 {
-  "name": "datapipe",
+  "name": "@masumdev/data-pipe",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "datapipe": "./dist/datapipe.js"
+    "datapipe": "dist/datapipe.js"
   },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "datapipe",
+    "pipeline",
+    "etl",
+    "cli",
+    "database",
+    "sqlite",
+    "postgres",
+    "seeder",
+    "ink",
+    "csv",
+    "json",
+    "api",
+    "importer",
+    "data"
+  ],
   "scripts": {
     "dev": "bun run src/index.tsx",
     "start": "bun run src/index.tsx",
