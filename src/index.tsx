@@ -2,6 +2,7 @@ import { render } from 'ink';
 import { readFileSync, existsSync } from 'fs';
 import { resolve, extname } from 'path';
 import * as yaml from 'js-yaml';
+import pkg from '../package.json';
 import { App } from './ui/App';
 import type { PipelineConfig, LogEntry } from './shared/types';
 import {
@@ -27,13 +28,14 @@ function parseArgs() {
     retry: args.includes('--retry'),
     autoQuit: args.includes('--auto-quit') || args.includes('-q'),
     raw: args.includes('--raw') || args.includes('--silent'),
+    version: args.includes('--version') || args.includes('-v'),
     help: args.includes('--help') || args.includes('-h'),
   };
 }
 
 function printUsage() {
   console.log(`
-  \x1b[1;36mDataPipe\x1b[0m — Generic data pipeline CLI
+  \x1b[1;36mDataPipe\x1b[0m v${pkg.version} — Generic data pipeline CLI
 
   \x1b[1mUsage:\x1b[0m
     bun run src/index.tsx --pipeline <path/to/config.json>
@@ -44,6 +46,7 @@ function printUsage() {
     --test-connection       Only test connection to the target database
     --retry                 Retry failed items from the previous pipeline run
     --auto-quit, -q         Auto-quit the process when complete or on error
+    --version, -v           Display version information
     --help, -h              Display this help menu
 
   \x1b[1mExamples:\x1b[0m
@@ -106,7 +109,12 @@ function loadConfig(pipelinePath: string): PipelineConfig {
 }
 
 async function main() {
-  const { pipelinePath, dryRun, autoQuit, raw, help } = parseArgs();
+  const { pipelinePath, dryRun, autoQuit, raw, version, help } = parseArgs();
+
+  if (version) {
+    console.log(pkg.version);
+    process.exit(0);
+  }
 
   if (help) {
     printUsage();

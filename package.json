@@ -9,6 +9,7 @@
     "dev": "bun run src/index.tsx",
     "start": "bun run src/index.tsx",
     "build": "bun build src/index.tsx --outfile dist/datapipe.js --target node && (echo '#!/usr/bin/env node'; cat dist/datapipe.js) > dist/datapipe.js.tmp && mv dist/datapipe.js.tmp dist/datapipe.js && chmod +x dist/datapipe.js",
+    "preview": "bun run dist/datapipe.js",
     "compile": "bun build --compile src/index.tsx --outfile dist/datapipe"
   },
   "dependencies": {
